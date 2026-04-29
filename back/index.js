@@ -22,8 +22,16 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:3000",
+].filter(Boolean);
+
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error("Not allowed by CORS"));
+  },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
@@ -60,4 +68,7 @@ mongoose
     console.log("MongoDB connecté");
     app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
   })
-  .catch((err) => console.error(err));
+  .catch((err) => {
+    console.error("Erreur connexion MongoDB:", err.message);
+    process.exit(1);
+  });
