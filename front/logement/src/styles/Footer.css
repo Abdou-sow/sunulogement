@@ -1,0 +1,143 @@
+.footer {
+  background: #000;
+  color: #fff;
+  padding: 40px 20px 20px;
+  margin-top: 60px;
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+/* Colonne générale */
+.footer-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-col h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer-col a {
+  color: #b0b0b0;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+.footer-col a:hover {
+  color: #1976d2;
+  text-decoration: underline;
+}
+
+/* Logo et marque */
+.footer-logo {
+  width: auto;
+  height:auto;
+}
+
+.footer-brand {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.footer-desc {
+  margin: 0;
+  color: #b0b0b0;
+  font-size: 13px;
+}
+
+/* Coordonnées */
+.footer-contact {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #b0b0b0;
+}
+
+.footer-contact a {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.footer-contact a:hover {
+  text-decoration: underline;
+}
+
+.footer-link-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  text-align: left;
+  transition: color 0.2s;
+}
+
+.footer-link-btn:hover {
+  color: #fff;
+}
+
+/* Réseaux sociaux */
+.footer-socials {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.social-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  background: #1a1a1a;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  filter: brightness(0.9);
+}
+
+.footer-socials a:hover .social-icon {
+  background: #1976d2;
+  filter: brightness(1);
+  transform: translateY(-2px);
+}
+
+/* Bottom bar */
+.footer-bottom {
+  text-align: center;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+  color: #666;
+  font-size: 13px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .footer {
+    padding: 30px 16px 16px;
+  }
+}

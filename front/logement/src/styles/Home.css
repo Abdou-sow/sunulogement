@@ -1,0 +1,150 @@
+/* Layout */
+.home-page{
+  padding:24px;
+  max-width:1200px;
+  margin:0 auto;
+}
+.home-title{
+  font-size:22px;
+  margin-bottom:16px;
+  color:#0a2540;
+}
+
+/* Cards grid */
+.cards-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:18px;
+}
+
+/* Card */
+.card{
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 8px 30px rgba(12,18,33,0.04);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  height:100%;
+}
+
+/* Media area with carousel controls */
+.card-media{
+  position:relative;
+  background:linear-gradient(180deg,#f6f8fb,#fff);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:200px;
+  max-height:300px;
+  overflow:hidden;
+}
+.card-image{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  cursor:zoom-in;
+  display:block;
+}
+
+/* carousel buttons */
+.carousel-btn{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:rgba(0,0,0,0.45);color:#fff;font-size:20px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.carousel-btn.left{left:10px}
+.carousel-btn.right{right:10px}
+
+/* dots */
+.carousel-dots{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:6px}
+.dot{
+  width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.7);border:1px solid rgba(0,0,0,0.08);cursor:pointer;
+}
+.dot.active{background:#1976d2}
+
+/* Body */
+.card-body{padding:12px 14px; display:flex; flex-direction:column; gap:8px; flex:1}
+.card-title{font-size:16px;color:#0a2540;margin:0}
+.card-location{font-size:13px;color:#6b7280;margin:0}
+.card-price{font-weight:700;color:#109879;margin:0}
+.card-desc{color:#374151;font-size:14px;margin-top:6px; margin-bottom:0; flex-grow:1;}
+
+/* Lightbox */
+.lightbox{
+  position:fixed;inset:0;background:rgba(2,6,23,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.lightbox-content{
+  max-width:1100px;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.lightbox-image{max-width:100%;max-height:80vh;object-fit:contain;border-radius:8px}
+.lightbox-close{position:absolute;top:18px;right:22px;background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer}
+.lightbox-prev,.lightbox-next{position:absolute;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#fff;font-size:40px;cursor:pointer;padding:8px}
+.lightbox-prev{left:12px}
+.lightbox-next{right:12px}
+.lightbox-footer{display:flex;gap:12px;align-items:center;color:#fff}
+
+/* responsive tweaks */
+@media (max-width:600px){
+  .card-media{min-height:180px}
+  .carousel-btn{width:30px;height:30px;font-size:18px}
+}
+
+/* filters */
+.filters-bar{
+  display:-webkit-box ;
+  gap:12px;
+  align-items:end;
+  padding:12px;
+  margin-bottom:16px;
+  flex-wrap:nowrap;         /* garder tous les filtres sur une seule ligne */
+  overflow-x:auto;         /* permettre défilement horizontal si l'écran est trop petit */
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width: thin;
+}
+
+/* for each filter keep its width and avoid shrink */
+.filter-item{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:160px;
+  flex:0 0 auto;           /* ne pas rétrécir : reste sur la même ligne */
+}
+
+/* keep actions visible at end */
+.filter-actions{
+  margin-left:auto;
+  flex:0 0 auto;
+}
+
+/* keep inputs full width inside their fixed min-width */
+.filter-item input, .filter-item select{padding:8px;border-radius:8px;border:1px solid #e6e9ee}
+
+/* responsive: allow slightly smaller items on very small screens but keep single line */
+@media (max-width:520px){
+  .filter-item{ min-width:140px }
+  .filters-bar{ gap:10px; padding:10px }
+}
+
+/* small screens */
+@media (max-width:800px){
+  .filters-bar{flex-direction:column;align-items:stretch}
+  .filter-actions{margin-left:0}
+}
+
+.btn-details{
+  width:100%;
+  background:#1976d2;
+  color:#fff;
+  border:none;
+  padding:10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+  margin-top:auto;
+}
+.btn-details:hover{background:#0d47a1}

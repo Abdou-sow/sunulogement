@@ -1,0 +1,73 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  /* même bleu dégradé que le bouton Login */
+  background: linear-gradient(180deg, var(--accent), #0d47a1);
+  box-shadow: 0 6px 20px rgba(13, 71, 161, 0.18);
+  color: #fff;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.navbar-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 6px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(13, 71, 161, 0.12);
+}
+.navbar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* liens sur fond bleu -> texte blanc */
+.navbar-links { display: flex; align-items: center; gap: 12px; }
+.nav-link {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+}
+.nav-link:hover { opacity: 0.95; text-decoration: underline; }
+
+/* bouton "Sign Up" couleur claire sur fond bleu */
+.nav-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+.nav-btn.register {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.nav-btn.register:hover { background: rgba(255, 255, 255, 0.18); }
+
+.nav-btn.logout {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.nav-btn.logout:hover { background: rgba(255, 255, 255, 0.18); }
+
+/* responsive */
+@media (max-width: 600px) {
+  .navbar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+  }
+  .navbar-title { display: none } /* garder seulement le logo si besoin */
+}

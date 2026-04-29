@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+back/node_modules/
+front/logement/node_modules/
+
+# Build
+front/logement/build/
+
+# Environment variables (NEVER commit ces fichiers)
+back/.env
+.env
+
+# Uploads (fichiers uploadés par les utilisateurs)
+back/uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/
