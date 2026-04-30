@@ -1490,76 +1490,62 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         </div>
 
         <form onSubmit={handleAdd}>
-          <div className="table-responsive" style={{ marginTop: "0.5rem" }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Titre (réf. interne)</th>
-                  <th>Type</th>
-                  <th>Région</th>
-                  <th>Commune</th>
-                  <th>Adresse précise</th>
-                  <th>Description</th>
-                  <th>Prix (FCFA)</th>
-                  <th>Photos</th>
-                  <th>Client</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>
-                    <input placeholder="Titre" value={titre} onChange={(e) => setTitre(e.target.value)} />
-                  </td>
-                  <td>
-                    <select value={typeLogement} onChange={(e) => setTypeLogement(e.target.value)}>
-                      {TYPES_LOGEMENT.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </td>
-                  <td>
-                    <select value={region} onChange={(e) => { setRegion(e.target.value); setCommune(""); }}>
-                      <option value="">-- Région --</option>
-                      {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </td>
-                  <td>
-                    <select value={commune} onChange={(e) => setCommune(e.target.value)} disabled={!region}>
-                      <option value="">-- Commune --</option>
-                      {(REGIONS_COMMUNES[region] || []).map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </td>
-                  <td>
-                    <input placeholder="Adresse précise (optionnel)" value={localisation} onChange={(e) => setLocalisation(e.target.value)} />
-                  </td>
-                  <td>
-                    <input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      placeholder="Prix"
-                      value={prix}
-                      onChange={(e) => setPrix(parseInt(e.target.value) || "")}
-                    />
-                  </td>
-                  <td>
-                    <input type="file" multiple onChange={(e) => setImages(e.target.files)} />
-                  </td>
-                  <td>
-                    <select value={locClientId} onChange={(e) => setLocClientId(e.target.value)}
-                      style={{ marginBottom: 4, fontSize: 12, padding: "3px 6px" }}>
-                      <option value="">Mes logements</option>
-                      {clients.map((c) => (
-                        <option key={c._id} value={c._id}>{c.nom} {c.prenom || ""}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <button type="submit">Ajouter</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="form-card">
+            <h4>Ajouter un logement</h4>
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Titre (réf. interne)</label>
+                <input placeholder="Ex: Apt B3 Dakar" value={titre} onChange={(e) => setTitre(e.target.value)} required />
+              </div>
+              <div className="form-field">
+                <label>Type</label>
+                <select value={typeLogement} onChange={(e) => setTypeLogement(e.target.value)}>
+                  {TYPES_LOGEMENT.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Région *</label>
+                <select value={region} onChange={(e) => { setRegion(e.target.value); setCommune(""); }} required>
+                  <option value="">-- Choisir --</option>
+                  {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Commune *</label>
+                <select value={commune} onChange={(e) => setCommune(e.target.value)} disabled={!region} required>
+                  <option value="">-- Choisir --</option>
+                  {(REGIONS_COMMUNES[region] || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Prix (FCFA) *</label>
+                <input type="number" placeholder="Ex: 150000" value={prix} onChange={(e) => setPrix(parseInt(e.target.value) || "")} required />
+              </div>
+              <div className="form-field">
+                <label>Client</label>
+                <select value={locClientId} onChange={(e) => setLocClientId(e.target.value)}>
+                  <option value="">Mes logements</option>
+                  {clients.map((c) => (
+                    <option key={c._id} value={c._id}>{c.nom} {c.prenom || ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field form-field-full">
+                <label>Adresse précise (optionnel)</label>
+                <input placeholder="Rue, numéro, quartier..." value={localisation} onChange={(e) => setLocalisation(e.target.value)} />
+              </div>
+              <div className="form-field form-field-full">
+                <label>Description *</label>
+                <input placeholder="Surface, équipements, détails..." value={description} onChange={(e) => setDescription(e.target.value)} required />
+              </div>
+              <div className="form-field form-field-full">
+                <label>Photos</label>
+                <input type="file" multiple onChange={(e) => setImages(e.target.files)} />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="btn">Ajouter le logement</button>
+            </div>
           </div>
         </form>
 
@@ -1743,7 +1729,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                           </a>
                         </td>
                         <td>{l.logementId?.titre || "-"}</td>
-                        <td>{montant} €</td>
+                        <td>{Number(montant).toLocaleString("fr-FR")} FCFA</td>
                         <td>{formatDate(l.dateDebutLocation)}</td>
                         <td>{formatDate(l.dateFinLocation)}</td>
                         <td>
@@ -1858,91 +1844,62 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         </div>
 
         {/* --- Ajouter un locataire --- */}
-        <h3 id="ajouter-locataire" style={{ marginTop: "2rem" }}>➕ Ajouter un locataire</h3>
-        <form onSubmit={handleAddLocataire} style={{ background: "#f9f9f9", padding: 16, borderRadius: 8, marginTop: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            <input
-              type="text"
-              placeholder="Nom"
-              value={locNom}
-              onChange={(e) => setLocNom(e.target.value)}
-              required
-            />
-            <input
-              type="text"
-              placeholder="Prénom"
-              value={locPrenom}
-              onChange={(e) => setLocPrenom(e.target.value)}
-              required
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={locEmail}
-              onChange={(e) => setLocEmail(e.target.value)}
-            />
-            <input
-              type="tel"
-              placeholder="Téléphone"
-              value={locTelephone}
-              onChange={(e) => setLocTelephone(e.target.value)}
-            />
-            <select
-              value={locLogement}
-              onChange={(e) => setLocLogement(e.target.value)}
-              required
-            >
-              <option value="">Choisir un logement</option>
-              {mesAnnonces.filter((a) => a.etat === "disponible").map((a) => (
-                <option key={a._id} value={a._id}>
-                  {a.titre} - {a.prix}€
-                </option>
-              ))}
-            </select>
-            <input
-              type="date"
-              placeholder="Début location"
-              value={locDebut}
-              onChange={(e) => setLocDebut(e.target.value)}
-              required
-            />
-            <input
-              type="date"
-              placeholder="Fin location"
-              value={locFin}
-              onChange={(e) => setLocFin(e.target.value)}
-              required
-            />
-            <input
-              type="file"
-              placeholder="Pièce d'identité"
-              onChange={(e) => setLocPieceIdentite(e.target.files[0])}
-            />
-            <input
-              type="file"
-              placeholder="État des lieux"
-              onChange={(e) => setLocEtatDesLieux(e.target.files[0])}
-            />
-            <input
-              type="file"
-              placeholder="Contrat de bail"
-              onChange={(e) => setLocContratBail(e.target.files[0])}
-            />
+        <h3 id="ajouter-locataire" style={{ marginTop: "2rem" }}>Ajouter un locataire</h3>
+        <form onSubmit={handleAddLocataire}>
+          <div className="form-card">
+            <div className="form-grid">
+              <div className="form-field">
+                <label>Nom *</label>
+                <input type="text" placeholder="Nom" value={locNom} onChange={(e) => setLocNom(e.target.value)} required />
+              </div>
+              <div className="form-field">
+                <label>Prénom *</label>
+                <input type="text" placeholder="Prénom" value={locPrenom} onChange={(e) => setLocPrenom(e.target.value)} required />
+              </div>
+              <div className="form-field">
+                <label>Email</label>
+                <input type="email" placeholder="Email" value={locEmail} onChange={(e) => setLocEmail(e.target.value)} />
+              </div>
+              <div className="form-field">
+                <label>Téléphone</label>
+                <input type="tel" placeholder="Téléphone" value={locTelephone} onChange={(e) => setLocTelephone(e.target.value)} />
+              </div>
+              <div className="form-field">
+                <label>Logement *</label>
+                <select value={locLogement} onChange={(e) => setLocLogement(e.target.value)} required>
+                  <option value="">-- Choisir --</option>
+                  {mesAnnonces.filter((a) => a.etat === "disponible").map((a) => (
+                    <option key={a._id} value={a._id}>
+                      {a.titre} — {Number(a.prix).toLocaleString("fr-FR")} FCFA
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field">
+                <label>Début location *</label>
+                <input type="date" value={locDebut} onChange={(e) => setLocDebut(e.target.value)} required />
+              </div>
+              <div className="form-field">
+                <label>Fin location *</label>
+                <input type="date" value={locFin} onChange={(e) => setLocFin(e.target.value)} required />
+              </div>
+              <div className="form-field">
+                <label>Pièce d'identité</label>
+                <input type="file" onChange={(e) => setLocPieceIdentite(e.target.files[0])} />
+              </div>
+              <div className="form-field">
+                <label>État des lieux</label>
+                <input type="file" onChange={(e) => setLocEtatDesLieux(e.target.files[0])} />
+              </div>
+              <div className="form-field">
+                <label>Contrat de bail</label>
+                <input type="file" onChange={(e) => setLocContratBail(e.target.files[0])} />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="btn">Ajouter le locataire</button>
+            </div>
           </div>
-          <button
-            type="submit"
-            style={{
-              marginTop: 12,
-              background: "#4CAF50",
-              color: "#fff",
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: 6,
-              cursor: "pointer"
-            }}
-          >
-            ➕ Ajouter locataire
-          </button>
         </form>
           </div>
           )} {/* fin page locataires */}
