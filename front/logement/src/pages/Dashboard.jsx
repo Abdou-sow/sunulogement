@@ -614,7 +614,7 @@ Titre: ${locataire.logementId?.titre || "-"}
 Adresse: ${locataire.logementId?.localisation || "-"}
 
 --- PAIEMENT ---
-Montant: ${montant} €
+Montant: ${Number(montant).toLocaleString("fr-FR")} FCFA
 Statut: Payé
 Date de paiement: ${new Date().toLocaleDateString("fr-FR")}
 
@@ -798,7 +798,7 @@ Titre  : ${locataire.logementId?.titre || "-"}
 Adresse: ${locataire.logementId?.localisation || "-"}
 
 --- PAIEMENT ---
-Montant        : ${paiement.montant} €
+Montant        : ${Number(paiement.montant).toLocaleString("fr-FR")} FCFA
 Statut         : Payé
 Date paiement  : ${datePaiement}
 
@@ -1093,7 +1093,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
       const loc = locataires.find((l) => String(l._id) === String(p.locataireId));
       const nom = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
       const date = p.datePaiement ? new Date(p.datePaiement).toLocaleDateString("fr-FR") : "-";
-      return ` ${String(i + 1).padStart(2)} | ${nom.substring(0, 23).padEnd(23)} | ${date.padEnd(13)} | ${p.montant} €${suffix}`;
+      return ` ${String(i + 1).padStart(2)} | ${nom.substring(0, 23).padEnd(23)} | ${date.padEnd(13)} | ${Number(p.montant).toLocaleString("fr-FR")} FCFA${suffix}`;
     };
     const lignes = [
       `====================================================`,
@@ -1123,7 +1123,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
       impayesList.forEach((p, i) => {
         const loc = locataires.find((l) => String(l._id) === String(p.locataireId));
         const nom = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
-        lignes.push(` ${String(i + 1).padStart(2)} | ${nom.substring(0, 23).padEnd(23)} | NON PAYÉ      | ${p.montant} €`);
+        lignes.push(` ${String(i + 1).padStart(2)} | ${nom.substring(0, 23).padEnd(23)} | NON PAYÉ      | ${Number(p.montant).toLocaleString("fr-FR")} FCFA`);
       });
     }
     lignes.push(
@@ -1158,7 +1158,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
       const nom = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
       const logTitre = getLogTitre(p.locataireId);
       const date = p.datePaiement ? new Date(p.datePaiement).toLocaleDateString("fr-FR") : "-";
-      return ` ${String(i + 1).padStart(2)} | ${logTitre.substring(0, 18).padEnd(18)} | ${nom.substring(0, 18).padEnd(18)} | ${date.padEnd(12)} | ${p.montant} €${suffix}`;
+      return ` ${String(i + 1).padStart(2)} | ${logTitre.substring(0, 18).padEnd(18)} | ${nom.substring(0, 18).padEnd(18)} | ${date.padEnd(12)} | ${Number(p.montant).toLocaleString("fr-FR")} FCFA${suffix}`;
     };
 
     const lignes = [
@@ -1198,7 +1198,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         const loc = locataires.find((l) => String(l._id) === String(p.locataireId));
         const nom = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
         const logTitre = getLogTitre(p.locataireId);
-        lignes.push(` ${String(i + 1).padStart(2)} | ${logTitre.substring(0, 18).padEnd(18)} | ${nom.substring(0, 18).padEnd(18)} | NON PAYÉ     | ${p.montant} €`);
+        lignes.push(` ${String(i + 1).padStart(2)} | ${logTitre.substring(0, 18).padEnd(18)} | ${nom.substring(0, 18).padEnd(18)} | NON PAYÉ     | ${Number(p.montant).toLocaleString("fr-FR")} FCFA`);
       });
     }
 
@@ -1364,7 +1364,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   <div onClick={() => setActivePage("finances")} style={{ background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", color: "#fff", borderRadius: 12, padding: "20px 28px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(26,35,126,0.25)", cursor: "pointer" }}>
                     <div>
                       <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 4 }}>Recouvrement {mois[getMoisActuel() - 1]} {new Date().getFullYear()}</div>
-                      <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} €</div>
+                      <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} FCFA</div>
                       <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>Cliquer pour voir les finances →</div>
                     </div>
                     <div style={{ fontSize: 48, opacity: 0.5 }}>💰</div>
@@ -2146,7 +2146,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                             <tr key={q._id} style={{ borderBottom: "1px solid #eee" }}>
                               <td style={{ padding: "6px 10px" }}>{mois[(q.mois || 1) - 1]}</td>
                               <td style={{ padding: "6px 10px" }}>{q.annee || new Date().getFullYear()}</td>
-                              <td style={{ padding: "6px 10px", fontWeight: 600 }}>{q.montant} €</td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600 }}>{Number(q.montant).toLocaleString("fr-FR")} FCFA</td>
                               <td style={{ padding: "6px 10px" }}>
                                 {q.datePaiement ? new Date(q.datePaiement).toLocaleDateString("fr-FR") : "-"}
                               </td>
@@ -2276,7 +2276,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 4 }}>
                     Recouvrement de {mois[getMoisActuel() - 1]} {new Date().getFullYear()}
                   </div>
-                  <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} €</div>
+                  <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} FCFA</div>
                 </div>
                 <div style={{ fontSize: 44, opacity: 0.6 }}>💰</div>
               </div>
@@ -2352,7 +2352,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     {logementsDuMois(mois.indexOf(moisSelectionne)).map((p) => (
                       <tr key={p._id}>
                         <td>{p.logementTitre || p.logement?.titre || "-"}</td>
-                        <td>{p.montant} €</td>
+                        <td>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
                         <td>{p.locataireNom || "-"}</td>
                       </tr>
                     ))}
@@ -2417,7 +2417,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     return (
                       <div key={p._id} style={{ fontSize: 12, color: "#555", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                         <strong>{nomLoc}</strong> — {date} —{" "}
-                        <span style={{ color: "#2e7d32", fontWeight: 600 }}>{p.montant} €</span>
+                        <span style={{ color: "#2e7d32", fontWeight: 600 }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</span>
                         {tag && <span style={{ background: tag.bg, color: "#fff", borderRadius: 8, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>{tag.label}</span>}
                       </div>
                     );
@@ -2455,7 +2455,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                               const nomLoc = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
                               return (
                                 <div key={p._id} style={{ fontSize: 12, color: "#c62828", display: "flex", alignItems: "center", gap: 4 }}>
-                                  <strong>{nomLoc}</strong> — {p.montant} € —
+                                  <strong>{nomLoc}</strong> — {Number(p.montant).toLocaleString("fr-FR")} FCFA —
                                   <span style={{ background: "#f44336", color: "#fff", borderRadius: 8, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>Impayé</span>
                                 </div>
                               );
@@ -2466,7 +2466,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                         )}
                       </td>
                       <td style={{ padding: "12px 14px", fontWeight: 700, color: totalMois > 0 ? "#2e7d32" : "#aaa", fontSize: 15 }}>
-                        {totalMois > 0 ? `${totalMois.toLocaleString("fr-FR")} €` : "—"}
+                        {totalMois > 0 ? `${totalMois.toLocaleString("fr-FR")} FCFA` : "—"}
                         {impayesMois.length > 0 && (
                           <div style={{ fontSize: 11, color: "#f44336", fontWeight: 600, marginTop: 2 }}>
                             {impayesMois.length} impayé{impayesMois.length > 1 ? "s" : ""}
@@ -2604,7 +2604,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
               <h4 style={{ margin: "0 0 8px" }}>🏠 Logement</h4>
               <p style={{ margin: "4px 0" }}><strong>Titre :</strong> {selectedReservation.logement?.titre || "-"}</p>
               <p style={{ margin: "4px 0" }}><strong>Localisation :</strong> {selectedReservation.logement?.localisation || "-"}</p>
-              <p style={{ margin: "4px 0" }}><strong>Prix :</strong> {selectedReservation.logement?.prix ? `${selectedReservation.logement.prix} €/mois` : "-"}</p>
+              <p style={{ margin: "4px 0" }}><strong>Prix :</strong> {selectedReservation.logement?.prix ? `${Number(selectedReservation.logement.prix).toLocaleString("fr-FR")} FCFA/mois` : "-"}</p>
             </div>
 
             {/* RDV */}
