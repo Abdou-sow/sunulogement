@@ -83,6 +83,11 @@ function Dashboard() {
   const [editDescription, setEditDescription] = useState("");
   const [editImages, setEditImages] = useState([]);
 
+  // --- Tri / recherche locataires ---
+  const [searchLoc, setSearchLoc] = useState("");
+  const [sortLocBy, setSortLocBy] = useState("nom");
+  const [sortLocDir, setSortLocDir] = useState("asc");
+
   // --- États locataires ---
   const [locNom, setLocNom] = useState("");
   const [locPrenom, setLocPrenom] = useState("");
@@ -251,6 +256,28 @@ function Dashboard() {
     ? locataires
     : locataires.filter((l) => annoncesAffichemesIds.has(String(l.logementId?._id || l.logementId)));
   const locatairesAffichemesIds = new Set(locatairesAffiches.map((l) => String(l._id)));
+
+  const locatairesFiltresTries = [...locatairesAffiches]
+    .filter((l) => {
+      if (!searchLoc) return true;
+      const q = searchLoc.toLowerCase();
+      return (
+        (l.nom || "").toLowerCase().includes(q) ||
+        (l.prenom || "").toLowerCase().includes(q) ||
+        (l.telephone || "").includes(q)
+      );
+    })
+    .sort((a, b) => {
+      let va = "", vb = "";
+      if (sortLocBy === "nom") {
+        va = `${a.nom} ${a.prenom}`.toLowerCase();
+        vb = `${b.nom} ${b.prenom}`.toLowerCase();
+      } else if (sortLocBy === "telephone") {
+        va = a.telephone || "";
+        vb = b.telephone || "";
+      }
+      return sortLocDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
   const paiementsAffiches = filtreClient === "all"
     ? paiements
     : paiements.filter((p) => locatairesAffichemesIds.has(String(p.locataireId)));
@@ -1691,13 +1718,44 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
           {activePage === "locataires" && (
           <div>
         {/* --- Mes locataires --- */}
-        <h2 id="mes-locataires" style={{ marginTop: "0" }}>👥 Mes locataires</h2>
-        <div style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 6px 18px rgba(0,0,0,0.06)", marginTop: 12 }}>
-          {locatairesAffiches.length === 0 ? (
-            <p style={{ color: "#666" }}>Aucun locataire pour le moment.</p>
+        <h2 id="mes-locataires" style={{ marginTop: "0" }}>Mes locataires</h2>
+
+        {/* Barre recherche + tri */}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+          <input
+            type="text"
+            placeholder="Rechercher par nom ou téléphone..."
+            value={searchLoc}
+            onChange={(e) => setSearchLoc(e.target.value)}
+            style={{ flex: 1, minWidth: 200, padding: "8px 12px", borderRadius: 8, border: "1px solid #e0e0e0", fontSize: 14 }}
+          />
+          <div style={{ display: "flex", gap: 6 }}>
+            {[{ key: "nom", label: "Nom" }, { key: "telephone", label: "Téléphone" }].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  if (sortLocBy === key) setSortLocDir((d) => d === "asc" ? "desc" : "asc");
+                  else { setSortLocBy(key); setSortLocDir("asc"); }
+                }}
+                style={{
+                  padding: "7px 14px", borderRadius: 8, border: "1px solid #e0e0e0", cursor: "pointer", fontSize: 13,
+                  background: sortLocBy === key ? "#1a237e" : "#fff",
+                  color: sortLocBy === key ? "#fff" : "#333",
+                  fontWeight: sortLocBy === key ? 700 : 400,
+                }}
+              >
+                {label} {sortLocBy === key ? (sortLocDir === "asc" ? "↑" : "↓") : "↕"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 6px 18px rgba(0,0,0,0.06)" }}>
+          {locatairesFiltresTries.length === 0 ? (
+            <p style={{ color: "#666" }}>{locatairesAffiches.length === 0 ? "Aucun locataire pour le moment." : "Aucun résultat pour cette recherche."}</p>
           ) : (
-            <div className="table-responsive" style={{ overflowX: "auto" }}>
-              <table className="table" style={{ minWidth: "1200px" }}>
+            <div className="table-responsive">
+              <table className="table loc-table">
                 <thead>
                   <tr>
                     <th>Nom</th>
@@ -1705,34 +1763,34 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     <th>Téléphone</th>
                     <th>Logement</th>
                     <th>Prix</th>
-                    <th>Début location</th>
-                    <th>Fin location</th>
-                    <th style={{ minWidth: "320px", fontSize: "12px" }}>Paiements (mois de location)</th>
+                    <th>Début</th>
+                    <th>Fin</th>
+                    <th>Paiements</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {locatairesAffiches.map((l) => {
+                  {locatairesFiltresTries.map((l) => {
                     const montant = l.logementId?.prix || 0;
 
                     return (
                       <tr key={l._id}>
-                        <td>{l.nom} {l.prenom}</td>
-                        <td>
+                        <td data-label="Nom">{l.nom} {l.prenom}</td>
+                        <td data-label="Email">
                           <a href={`mailto:${l.email}`} style={{ color: "#1976d2", textDecoration: "none" }}>
                             {l.email || "-"}
                           </a>
                         </td>
-                        <td>
+                        <td data-label="Téléphone">
                           <a href={`tel:${l.telephone}`} style={{ color: "#1976d2", textDecoration: "none" }}>
                             {l.telephone || "-"}
                           </a>
                         </td>
-                        <td>{l.logementId?.titre || "-"}</td>
-                        <td>{Number(montant).toLocaleString("fr-FR")} FCFA</td>
-                        <td>{formatDate(l.dateDebutLocation)}</td>
-                        <td>{formatDate(l.dateFinLocation)}</td>
-                        <td>
+                        <td data-label="Logement">{l.logementId?.titre || "-"}</td>
+                        <td data-label="Prix">{Number(montant).toLocaleString("fr-FR")} FCFA</td>
+                        <td data-label="Début">{formatDate(l.dateDebutLocation)}</td>
+                        <td data-label="Fin">{formatDate(l.dateFinLocation)}</td>
+                        <td data-label="Paiements">
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {getMoisLocation(l.dateDebutLocation, l.dateFinLocation).map(({ moisNum, annee }) => {
                               const label = `${mois[moisNum - 1].substring(0, 3)} ${annee}`;
@@ -1771,7 +1829,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                             )}
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Actions">
                           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                             <button
                               onClick={() => openEditLocataire(l)}
