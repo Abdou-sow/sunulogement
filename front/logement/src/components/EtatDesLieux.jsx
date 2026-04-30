@@ -326,7 +326,7 @@ export default function EtatDesLieux({ locataire, logement, user, onArchive, onC
       head: [["Logement", "Locataire"]],
       body: [
         [
-          `${logement?.titre || "-"}\n${logement?.localisation || "-"}\nPrix : ${logement?.prix || "-"} €/mois`,
+          `${logement?.titre || "-"}\n${logement?.localisation || "-"}\nPrix : ${logement?.prix ? Number(logement.prix).toLocaleString("fr-FR") + " FCFA" : "-"}/mois`,
           `${locataire?.nom || ""} ${locataire?.prenom || ""}\n${locataire?.email || "-"}\n${locataire?.telephone || "-"}`,
         ],
       ],

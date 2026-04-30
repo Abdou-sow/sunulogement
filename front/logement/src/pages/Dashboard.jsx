@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "../contexts/UserContext";
 import { TYPES_LOGEMENT, REGIONS, REGIONS_COMMUNES } from "../data/senegal";
-import { API_URL } from "../services/api";
+import { getImageUrl } from "../services/api";
 import EtatDesLieux from "../components/EtatDesLieux";
 import {
   getClients,
@@ -1102,7 +1102,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     lignes.push(
       `----------------------------------------------------`,
       ``,
-      ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} €`,
+      ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} FCFA`,
       ` Encaissements   : ${payesList.length + arrieresList.length}`,
       ` Impayés         : ${impayesList.length}`,
       ``,
@@ -1178,7 +1178,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     lignes.push(
       `----------------------------------------------------`,
       ``,
-      ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} €`,
+      ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} FCFA`,
       ` Encaissements   : ${payesList.length + arrieresList.length}`,
       ` Impayés         : ${impayesList.length}`,
       ``,
@@ -1494,11 +1494,15 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
             <table className="table">
               <thead>
                 <tr>
-                  <th>Titre</th>
-                  <th>Localisation</th>
+                  <th>Titre (réf. interne)</th>
+                  <th>Type</th>
+                  <th>Région</th>
+                  <th>Commune</th>
+                  <th>Adresse précise</th>
                   <th>Description</th>
-                  <th>Prix</th>
-                  <th>Images</th>
+                  <th>Prix (FCFA)</th>
+                  <th>Photos</th>
+                  <th>Client</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -1569,8 +1573,11 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 const client = a.clientId ? (typeof a.clientId === "object" ? a.clientId : clients.find((c) => String(c._id) === String(a.clientId))) : null;
                 return (
                 <tr key={a._id}>
-                  <td><img src={`${API_URL}${a.images?.[0]}`} width={80} alt="logement" /></td>
-                  <td>{a.titre}</td>
+                  <td>{a.images?.[0] ? <img src={getImageUrl(a.images[0])} width={80} alt="" /> : "—"}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{a.titre}</div>
+                    <div style={{ fontSize: 12, color: "#666" }}>{[a.type, a.commune].filter(Boolean).join(" — ")}</div>
+                  </td>
                   <td>
                     {client ? (
                       <span style={{ background: "#e8eaf6", color: "#1a237e", borderRadius: 10, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
@@ -1580,7 +1587,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                       <span style={{ color: "#aaa", fontSize: 12 }}>—</span>
                     )}
                   </td>
-                  <td>{a.prix}</td>
+                  <td>{Number(a.prix).toLocaleString("fr-FR")} FCFA</td>
                   <td>
                     <span style={{
                       display: "inline-block",
@@ -2038,7 +2045,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   <h4>Logement</h4>
                   <p><strong>Titre:</strong> {selectedLocataireDossier.logementId?.titre || "-"}</p>
                   <p><strong>Localisation:</strong> {selectedLocataireDossier.logementId?.localisation || "-"}</p>
-                  <p><strong>Prix:</strong> {selectedLocataireDossier.logementId?.prix || "-"} €</p>
+                  <p><strong>Prix:</strong> {selectedLocataireDossier.logementId?.prix ? Number(selectedLocataireDossier.logementId.prix).toLocaleString("fr-FR") + " FCFA" : "-"}</p>
                   <p><strong>Description:</strong> {selectedLocataireDossier.logementId?.description || "-"}</p>
                 </div>
               </div>
@@ -2047,7 +2054,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {selectedLocataireDossier.pieceIdentite && (
                     <a
-                      href={`${API_URL}${selectedLocataireDossier.pieceIdentite}`}
+                      href={getImageUrl(selectedLocataireDossier.pieceIdentite)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -2064,7 +2071,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   )}
                   {selectedLocataireDossier.etatDesLieux && (
                     <a
-                      href={`${API_URL}${selectedLocataireDossier.etatDesLieux}`}
+                      href={getImageUrl(selectedLocataireDossier.etatDesLieux)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -2081,7 +2088,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   )}
                   {selectedLocataireDossier.contratBail && (
                     <a
-                      href={`${API_URL}${selectedLocataireDossier.contratBail}`}
+                      href={getImageUrl(selectedLocataireDossier.contratBail)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -2268,8 +2275,8 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
               <BarChart width={500} height={350} data={dataGraph}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="mois" />
-                <YAxis tickFormatter={(v) => `${v} €`} />
-                <Tooltip formatter={(v) => `${v} €`} />
+                <YAxis tickFormatter={(v) => `${v} FCFA`} />
+                <Tooltip formatter={(v) => `${v} FCFA`} />
                 <Legend />
                 <Bar dataKey="revenu" fill="#4CAF50" onClick={(d) => setMoisSelectionne(d.mois)} />
               </BarChart>
@@ -2855,7 +2862,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 <label>Photos:</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {editImages.map((img, index) => {
-                    const url = typeof img === 'string' ? `${API_URL}${img}` : URL.createObjectURL(img);
+                    const url = typeof img === 'string' ? getImageUrl(img) : URL.createObjectURL(img);
                     return (
                       <div key={index} style={{ position: 'relative' }}>
                         <img

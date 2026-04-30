@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getLogementById, createCandidature } from "../services/logements";
+import { getImageUrl } from "../services/api";
 import "../styles/LogementDetail.css";
-
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function LogementDetail() {
   const { id } = useParams();
@@ -46,9 +45,7 @@ export default function LogementDetail() {
   };
 
   const imgs = logement ? normalizeImages(logement.images) : [];
-  const currentImg = imgs[carouselIndex] 
-    ? `${API_URL}${imgs[carouselIndex]}` 
-    : "/placeholder-400.png";
+  const currentImg = imgs[carouselIndex] ? getImageUrl(imgs[carouselIndex]) : "/placeholder-400.png";
 
   const prevCarousel = () => {
     setCarouselIndex((i) => (i - 1 + imgs.length) % imgs.length);
@@ -121,12 +118,17 @@ export default function LogementDetail() {
 
         {/* Infos + formulaire */}
         <div className="detail-info">
-          <h1>{logement.titre}</h1>
-          <p className="location">📍 {logement.localisation}</p>
-          <p className="price">{logement.prix} € / mois</p>
+          <h1>{[logement.type, logement.commune].filter(Boolean).join(" — ") || logement.titre}</h1>
+          <p className="location">
+            📍 {[logement.region, logement.commune, logement.localisation].filter(Boolean).join(", ")}
+          </p>
+          <p className="price">{Number(logement.prix).toLocaleString("fr-FR")} FCFA / mois</p>
           <p className="desc">{logement.description}</p>
-          {logement.type && <p className="type">Type : {logement.type}</p>}
-          {logement.etat && <p className="etat">État : {logement.etat}</p>}
+          {logement.etat && (
+            <p className="etat">
+              État : {logement.etat === "disponible" ? "Disponible" : logement.etat === "indisponible" ? "Indisponible" : "En rénovation"}
+            </p>
+          )}
 
           {/* Formulaire candidature */}
           {submitSuccess ? (
