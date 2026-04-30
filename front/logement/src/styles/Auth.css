@@ -91,11 +91,19 @@ body{font-family:Inter,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif;backgro
   margin-top:8px;
 }
 .auth-input{
-  padding:12px 14px;
+  height: 48px;
+  padding: 0 14px;
   border-radius:10px;
   border:1px solid #e6e9ee;
   font-size:14px;
+  font-family: inherit;
+  color: #0f1724;
+  box-sizing: border-box;
+  width: 100%;
   outline:none;
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 48px;
 }
 .auth-input:focus{box-shadow:0 6px 18px rgba(30,136,229,0.08);border-color:var(--accent)}
 
