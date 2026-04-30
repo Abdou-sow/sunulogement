@@ -131,6 +131,12 @@ export const getAllProprietaires = async () => {
   return res.data;
 };
 
+// Marquer automatiquement les paiements passés comme impayés
+export const autoMarkUnpaid = async () => {
+  const res = await api.post("/locataires/auto-mark-unpaid");
+  return res.data;
+};
+
 // Modérateur — autoriser un propriétaire
 export const autoriserProprietaire = async (id) => {
   const res = await api.patch(`/moderateur/proprietaires/${id}/autoriser`);

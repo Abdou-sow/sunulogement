@@ -180,6 +180,61 @@ export const marquerPaiementImpaye = async (req, res) => {
   }
 };
 
+export const autoMarkUnpaid = async (req, res) => {
+  try {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const locataires = await Locataire.find({ proprietaireId: req.user._id })
+      .populate("logementId", "prix");
+
+    for (const locataire of locataires) {
+      if (!locataire.dateDebutLocation || !locataire.dateFinLocation) continue;
+
+      const start = new Date(locataire.dateDebutLocation);
+      const end = new Date(locataire.dateFinLocation);
+      let modified = false;
+
+      let current = new Date(start.getFullYear(), start.getMonth(), 1);
+
+      while (current <= end) {
+        const moisNum = current.getMonth() + 1;
+        const annee = current.getFullYear();
+
+        // Seulement les mois entièrement passés (avant le mois actuel)
+        const hasPassed = annee < currentYear || (annee === currentYear && moisNum < currentMonth);
+        if (!hasPassed) break;
+
+        const existing = locataire.paiements.find(
+          (p) => p.mois === moisNum && p.annee === annee
+        );
+
+        if (!existing) {
+          locataire.paiements.push({
+            mois: moisNum,
+            annee,
+            montant: locataire.logementId?.prix || 0,
+            statut: "impayé",
+          });
+          modified = true;
+        } else if (existing.statut === "en attente") {
+          existing.statut = "impayé";
+          modified = true;
+        }
+
+        current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+      }
+
+      if (modified) await locataire.save();
+    }
+
+    res.json({ message: "ok" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const updateEtatDesLieux = async (req, res) => {
   try {
     const locataire = await Locataire.findById(req.params.id);

@@ -20,6 +20,7 @@ import {
   marquerPaiementImpaye,
   updateLocataireById,
   createPaiement,
+  autoMarkUnpaid,
   // candidatures
   getCandidaturesByProprietaireId,
   deleteCandidature,
@@ -188,6 +189,9 @@ function Dashboard() {
           return [];
         }
       };
+
+      // Marquer d'abord les mois passés sans paiement comme impayés
+      await autoMarkUnpaid().catch(() => {});
 
       const [dataAnnonces, dataLocataires, dataCandidatures, dataReservations, dataClients] =
         await Promise.all([
@@ -680,21 +684,56 @@ Cette quittance vaut preuve de paiement du loyer pour le mois de ${moisNom} ${an
     const annee = new Date().getFullYear();
     const moisNom = mois[moisNum - 1];
 
-    // 1. Marquer les paiements "en attente" du mois comme "impayé"
+    // 1a. Créer les paiements manquants (impayé) pour les locataires sans paiement ce mois
+    const locatairesAvecMois = locataires.filter((l) => {
+      const moisLoc = getMoisLocation(l.dateDebutLocation, l.dateFinLocation);
+      return moisLoc.some((m) => m.moisNum === moisNum && m.annee === annee);
+    });
+    for (const l of locatairesAvecMois) {
+      const existe = paiements.find(
+        (p) => String(p.locataireId) === String(l._id) && Number(p.mois) === moisNum && Number(p.annee) === annee
+      );
+      if (!existe) {
+        try {
+          const montant = l.logementId?.prix || 0;
+          await createPaiement(l._id, { mois: moisNum, annee, montant, statut: "impayé" });
+        } catch (err) {
+          console.error("Erreur création paiement manquant:", err);
+        }
+      }
+    }
+
+    // 1b. Marquer les paiements "en attente" du mois comme "impayé"
     const enAttente = paiements.filter(
       (p) => p.mois === moisNum && (p.annee || annee) === annee && p.statut === "en attente"
     );
-    let paiementsUpdated = [...paiements];
     for (const p of enAttente) {
       try {
         await marquerPaiementImpaye(p._id);
-        paiementsUpdated = paiementsUpdated.map((up) =>
-          up._id === p._id ? { ...up, statut: "impayé" } : up
-        );
       } catch (err) {
         console.error("Erreur marquage impayé:", err);
       }
     }
+
+    // 1c. Recharger les données fraîches depuis le serveur
+    const freshLocataires = await getLocatairesByProprietaireId(proprietaireId).catch(() => locataires);
+    let paiementsUpdated = [];
+    freshLocataires.forEach((l) => {
+      if (l.paiements) {
+        const nomLoc = `${l.nom || ""} ${l.prenom || ""}`.trim() || l.email || "-";
+        const logementTitre = l.logementId?.titre || "-";
+        const enriched = l.paiements.map((p) => ({
+          ...p,
+          locataireNom: nomLoc,
+          logementTitre,
+          locataireId: String(l._id),
+          locataireEmail: l.email || null,
+          logementId: l.logementId?._id ? String(l.logementId._id) : null,
+        }));
+        paiementsUpdated = [...paiementsUpdated, ...enriched];
+      }
+    });
+    setLocataires(Array.isArray(freshLocataires) ? freshLocataires : locataires);
     setPaiements(paiementsUpdated);
 
     // 2. Catégories (sur tous les paiements, pas filtrés)
@@ -716,7 +755,7 @@ Cette quittance vaut preuve de paiement du loyer pour le mois de ${moisNom} ${an
 
     // Helper : locataireIds pour un set de logementIds
     const locIdsForLogs = (logIds) =>
-      new Set(locataires.filter((l) => logIds.has(String(l.logementId?._id || l.logementId))).map((l) => String(l._id)));
+      new Set(freshLocataires.filter((l) => logIds.has(String(l.logementId?._id || l.logementId))).map((l) => String(l._id)));
 
     // 3. Registre GLOBAL
     const globalContent = buildRegistreLines(payesDuMois, arrieresDuMois, impayesDuMois, moisNom, annee, "REGISTRE DE RECOUVREMENT MENSUEL GLOBAL");
@@ -1794,17 +1833,35 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {getMoisLocation(l.dateDebutLocation, l.dateFinLocation).map(({ moisNum, annee }) => {
                               const label = `${mois[moisNum - 1].substring(0, 3)} ${annee}`;
+                              const now = new Date();
+                              const nowYear = now.getFullYear();
+                              const nowMonth = now.getMonth() + 1;
+                              const isFuture = annee > nowYear || (annee === nowYear && moisNum > nowMonth);
                               const paiementMois = paiements.find((p) =>
                                 String(p.locataireId) === String(l._id) &&
                                 Number(p.mois) === moisNum &&
                                 Number(p.annee) === annee
                               );
                               if (paiementMois) {
-                                return paiementMois.statut === "payé" ? (
-                                  <span key={`${moisNum}-${annee}`} style={{ background: "#e8f5e9", color: "#2e7d32", borderRadius: 4, padding: "3px 6px", fontSize: 11, fontWeight: 700 }}>
-                                    ✅ {label}
-                                  </span>
-                                ) : (
+                                if (paiementMois.statut === "payé") {
+                                  return (
+                                    <span key={`${moisNum}-${annee}`} style={{ background: "#e8f5e9", color: "#2e7d32", borderRadius: 4, padding: "3px 6px", fontSize: 11, fontWeight: 700 }}>
+                                      ✅ {label}
+                                    </span>
+                                  );
+                                }
+                                if (paiementMois.statut === "impayé") {
+                                  return (
+                                    <button
+                                      key={`${moisNum}-${annee}`}
+                                      onClick={() => handleValiderPaiement(paiementMois._id)}
+                                      style={{ background: "#f44336", color: "#fff", border: "none", padding: "3px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+                                    >
+                                      ❌ {label}
+                                    </button>
+                                  );
+                                }
+                                return (
                                   <button
                                     key={`${moisNum}-${annee}`}
                                     onClick={() => handleValiderPaiement(paiementMois._id)}
@@ -1814,13 +1871,23 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                                   </button>
                                 );
                               }
+                              if (isFuture) {
+                                return (
+                                  <span
+                                    key={`${moisNum}-${annee}`}
+                                    style={{ background: "#f3f4f6", color: "#aaa", borderRadius: 4, padding: "3px 6px", fontSize: 11 }}
+                                  >
+                                    {label}
+                                  </span>
+                                );
+                              }
                               return (
                                 <button
                                   key={`${moisNum}-${annee}`}
                                   onClick={() => handleCreerPaiement(l._id, moisNum, annee)}
                                   style={{ background: "#FF9800", color: "#fff", border: "none", padding: "3px 6px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
                                 >
-                                  {label}
+                                  + {label}
                                 </button>
                               );
                             })}

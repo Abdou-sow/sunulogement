@@ -9,6 +9,7 @@ import {
   marquerPaiementPaye,
   marquerPaiementImpaye,
   updateEtatDesLieux,
+  autoMarkUnpaid,
 } from "../controllers/locataireController.js";
 
 const router = express.Router();
@@ -19,7 +20,8 @@ const documentsFields = uploadLocataire.fields([
   { name: "contratBail", maxCount: 1 },
 ]);
 
-// IMPORTANT : routes paiement avant /:id pour éviter le conflit Express
+// IMPORTANT : routes statiques avant /:id pour éviter les conflits Express
+router.post("/auto-mark-unpaid", protect, autoMarkUnpaid);
 router.patch("/paiement/:paiementId/impaye", protect, marquerPaiementImpaye);
 router.patch("/paiement/:paiementId", protect, marquerPaiementPaye);
 
