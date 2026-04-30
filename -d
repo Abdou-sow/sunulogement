@@ -1,0 +1,4 @@
+{"message":"Cannot destructure property 'name' of 'req.body' as it is undefined."}--_curl_--"name":"Modérateur"
+--_curl_--"email":"sowabdou2009@gmail.com"
+--_curl_--"password":"Papaahmed@60"
+--_curl_--"role":"moderateur"

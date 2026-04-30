@@ -153,6 +153,25 @@
   font-size: 11px;
 }
 
+.dash-logout-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 0;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.dash-logout-btn:hover {
+  background: rgba(255,80,80,0.25);
+  color: #fff;
+  border-color: rgba(255,80,80,0.4);
+}
+
 /* ---- Contenu principal ---- */
 .dash-content {
   margin-left: 240px;

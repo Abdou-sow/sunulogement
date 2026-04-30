@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "../contexts/UserContext";
+import { TYPES_LOGEMENT, REGIONS, REGIONS_COMMUNES } from "../data/senegal";
 import { API_URL } from "../services/api";
 import EtatDesLieux from "../components/EtatDesLieux";
 import {
@@ -46,7 +47,7 @@ import "../styles/Dashboard.css";
 import "../styles/DashboardLayout.css";
 
 function Dashboard() {
-  const { user } = useUser();
+  const { user, logout } = useUser();
   const toast = useToast();
 
   const [mesAnnonces, setMesAnnonces] = useState([]);
@@ -59,6 +60,9 @@ function Dashboard() {
 
   // --- États pour ajout logement ---
   const [titre, setTitre] = useState("");
+  const [typeLogement, setTypeLogement] = useState("Maison");
+  const [region, setRegion] = useState("");
+  const [commune, setCommune] = useState("");
   const [localisation, setLocalisation] = useState("");
   const [description, setDescription] = useState("");
   const [prix, setPrix] = useState("");
@@ -70,6 +74,9 @@ function Dashboard() {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState("");
   const [editTitle, setEditTitle] = useState("");
+  const [editType, setEditType] = useState("Maison");
+  const [editRegion, setEditRegion] = useState("");
+  const [editCommune, setEditCommune] = useState("");
   const [editEtat, setEditEtat] = useState("");
   const [editPrix, setEditPrix] = useState("");
   const [editLocalisation, setEditLocalisation] = useState("");
@@ -280,13 +287,16 @@ function Dashboard() {
   // --- Ajouter logement ---
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!titre || !localisation || !description || !prix) {
-      toast("Remplir tous les champs", "warning");
+    if (!titre || !region || !commune || !description || !prix) {
+      toast("Remplir tous les champs obligatoires", "warning");
       return;
     }
     try {
       const formData = new FormData();
       formData.append("titre", titre);
+      formData.append("type", typeLogement);
+      formData.append("region", region);
+      formData.append("commune", commune);
       formData.append("localisation", localisation);
       formData.append("description", description);
       formData.append("prix", prix);
@@ -295,6 +305,9 @@ function Dashboard() {
       const newAnnonce = await createLogement(formData);
       setMesAnnonces((prev) => [newAnnonce, ...prev]);
       setTitre("");
+      setTypeLogement("Maison");
+      setRegion("");
+      setCommune("");
       setLocalisation("");
       setDescription("");
       setPrix("");
@@ -322,6 +335,9 @@ function Dashboard() {
   const startEditing = (annonce) => {
     setEditingId(annonce._id);
     setEditTitle(annonce.titre);
+    setEditType(annonce.type || "Maison");
+    setEditRegion(annonce.region || "");
+    setEditCommune(annonce.commune || "");
     setEditEtat(annonce.etat);
     setEditPrix(annonce.prix);
     setEditLocalisation(annonce.localisation || "");
@@ -334,6 +350,9 @@ function Dashboard() {
     try {
       const formData = new FormData();
       formData.append("titre", editTitle);
+      formData.append("type", editType);
+      formData.append("region", editRegion);
+      formData.append("commune", editCommune);
       formData.append("etat", editEtat);
       formData.append("prix", editPrix);
       formData.append("localisation", editLocalisation);
@@ -1248,6 +1267,9 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
               <div className="dash-user-role">Propriétaire</div>
             </div>
           </div>
+          <button className="dash-logout-btn" onClick={logout}>
+            Déconnexion
+          </button>
         </div>
       </aside>
 
@@ -1486,7 +1508,24 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     <input placeholder="Titre" value={titre} onChange={(e) => setTitre(e.target.value)} />
                   </td>
                   <td>
-                    <input placeholder="Localisation" value={localisation} onChange={(e) => setLocalisation(e.target.value)} />
+                    <select value={typeLogement} onChange={(e) => setTypeLogement(e.target.value)}>
+                      {TYPES_LOGEMENT.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select value={region} onChange={(e) => { setRegion(e.target.value); setCommune(""); }}>
+                      <option value="">-- Région --</option>
+                      {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select value={commune} onChange={(e) => setCommune(e.target.value)} disabled={!region}>
+                      <option value="">-- Commune --</option>
+                      {(REGIONS_COMMUNES[region] || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <input placeholder="Adresse précise (optionnel)" value={localisation} onChange={(e) => setLocalisation(e.target.value)} />
                   </td>
                   <td>
                     <input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -2772,10 +2811,33 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 <label>Titre: <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required /></label>
               </div>
               <div style={{ marginBottom: '10px' }}>
+                <label>Type:
+                  <select value={editType} onChange={(e) => setEditType(e.target.value)}>
+                    {TYPES_LOGEMENT.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label>Région:
+                  <select value={editRegion} onChange={(e) => { setEditRegion(e.target.value); setEditCommune(""); }}>
+                    <option value="">-- Région --</option>
+                    {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label>Commune:
+                  <select value={editCommune} onChange={(e) => setEditCommune(e.target.value)} disabled={!editRegion}>
+                    <option value="">-- Commune --</option>
+                    {(REGIONS_COMMUNES[editRegion] || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
                 <label>Prix: <input type="number" value={editPrix} onChange={(e) => setEditPrix(e.target.value)} required /></label>
               </div>
               <div style={{ marginBottom: '10px' }}>
-                <label>Localisation: <input type="text" value={editLocalisation} onChange={(e) => setEditLocalisation(e.target.value)} required /></label>
+                <label>Adresse précise: <input type="text" value={editLocalisation} onChange={(e) => setEditLocalisation(e.target.value)} /></label>
               </div>
               <div style={{ marginBottom: '10px' }}>
                 <label>État:

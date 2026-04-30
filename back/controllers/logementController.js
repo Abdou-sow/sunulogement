@@ -31,11 +31,14 @@ export const getLogementsByProprietaire = async (req, res) => {
 
 export const createLogement = async (req, res) => {
   try {
-    const { titre, localisation, description, prix } = req.body;
+    const { titre, type, region, commune, localisation, description, prix } = req.body;
     const images = req.files?.map((f) => f.path) || [];
 
     const logement = await Logement.create({
       titre,
+      type: type || "Maison",
+      region: region || "",
+      commune: commune || "",
       localisation,
       description,
       prix,
@@ -59,10 +62,13 @@ export const updateLogement = async (req, res) => {
       return res.status(403).json({ message: "Accès refusé" });
     }
 
-    const { titre, localisation, description, prix, etat } = req.body;
+    const { titre, type, region, commune, localisation, description, prix, etat } = req.body;
     const newImages = req.files?.map((f) => f.path) || [];
 
     if (titre !== undefined) logement.titre = titre;
+    if (type !== undefined) logement.type = type;
+    if (region !== undefined) logement.region = region;
+    if (commune !== undefined) logement.commune = commune;
     if (localisation !== undefined) logement.localisation = localisation;
     if (description !== undefined) logement.description = description;
     if (prix !== undefined) logement.prix = prix;

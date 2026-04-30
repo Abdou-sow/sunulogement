@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 
 const logementSchema = new mongoose.Schema({
   titre: { type: String, required: true },
+  type: { type: String, enum: ["Maison", "Studio", "T2", "T3", "T4", "Magasin"], default: "Maison" },
+  region: { type: String, default: "" },
+  commune: { type: String, default: "" },
   description: String,
   localisation: String,
   prix: Number,
