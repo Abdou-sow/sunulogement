@@ -32,7 +32,7 @@ export const getLogementsByProprietaire = async (req, res) => {
 export const createLogement = async (req, res) => {
   try {
     const { titre, localisation, description, prix } = req.body;
-    const images = req.files?.map((f) => `/uploads/logements/${f.filename}`) || [];
+    const images = req.files?.map((f) => f.path) || [];
 
     const logement = await Logement.create({
       titre,
@@ -60,7 +60,7 @@ export const updateLogement = async (req, res) => {
     }
 
     const { titre, localisation, description, prix, etat } = req.body;
-    const newImages = req.files?.map((f) => `/uploads/logements/${f.filename}`) || [];
+    const newImages = req.files?.map((f) => f.path) || [];
 
     if (titre !== undefined) logement.titre = titre;
     if (localisation !== undefined) logement.localisation = localisation;

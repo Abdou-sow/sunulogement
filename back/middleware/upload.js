@@ -1,23 +1,22 @@
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const createStorage = (folder) => {
-  const dest = path.join(__dirname, "..", "uploads", folder);
-  fs.mkdirSync(dest, { recursive: true });
-
-  return multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, dest),
-    filename: (_req, file, cb) => {
-      const safeName = file.originalname.replace(/\s+/g, "-");
-      cb(null, `${Date.now()}-${safeName}`);
+const createStorage = (folder) =>
+  new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: `sunulogement/${folder}`,
+      allowed_formats: ["jpg", "jpeg", "png", "webp", "pdf"],
+      resource_type: "auto",
     },
   });
-};
 
 const fileFilter = (_req, file, cb) => {
   const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];

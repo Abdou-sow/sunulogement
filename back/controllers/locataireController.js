@@ -21,13 +21,13 @@ export const createLocataire = async (req, res) => {
 
     const files = req.files || {};
     const pieceIdentite = files.pieceIdentite?.[0]
-      ? `/uploads/locataires/${files.pieceIdentite[0].filename}`
+      ? files.pieceIdentite[0].path
       : undefined;
     const etatDesLieux = files.etatDesLieux?.[0]
-      ? `/uploads/locataires/${files.etatDesLieux[0].filename}`
+      ? files.etatDesLieux[0].path
       : undefined;
     const contratBail = files.contratBail?.[0]
-      ? `/uploads/locataires/${files.contratBail[0].filename}`
+      ? files.contratBail[0].path
       : undefined;
 
     const locataire = await Locataire.create({
@@ -100,9 +100,9 @@ export const updateLocataire = async (req, res) => {
     if (dateDebutLocation !== undefined) locataire.dateDebutLocation = dateDebutLocation;
     if (dateFinLocation !== undefined) locataire.dateFinLocation = dateFinLocation;
 
-    if (files.pieceIdentite?.[0]) locataire.pieceIdentite = `/uploads/locataires/${files.pieceIdentite[0].filename}`;
-    if (files.etatDesLieux?.[0]) locataire.etatDesLieux = `/uploads/locataires/${files.etatDesLieux[0].filename}`;
-    if (files.contratBail?.[0]) locataire.contratBail = `/uploads/locataires/${files.contratBail[0].filename}`;
+    if (files.pieceIdentite?.[0]) locataire.pieceIdentite = files.pieceIdentite[0].path;
+    if (files.etatDesLieux?.[0]) locataire.etatDesLieux = files.etatDesLieux[0].path;
+    if (files.contratBail?.[0]) locataire.contratBail = files.contratBail[0].path;
 
     await locataire.save();
     await locataire.populate("logementId", "titre localisation prix description");
@@ -186,7 +186,7 @@ export const updateEtatDesLieux = async (req, res) => {
     if (!locataire) return res.status(404).json({ message: "Locataire introuvable" });
     if (!req.file) return res.status(400).json({ message: "Fichier manquant" });
 
-    locataire.etatDesLieux = `/uploads/locataires/${req.file.filename}`;
+    locataire.etatDesLieux = req.file.path;
     await locataire.save();
 
     res.status(200).json({
