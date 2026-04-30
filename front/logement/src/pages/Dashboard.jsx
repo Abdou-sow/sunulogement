@@ -288,9 +288,15 @@ function Dashboard() {
 
   // --- Gestion des paiements pour graphique ---
   const getRevenuAnnuel = () => {
+    const annee = new Date().getFullYear();
     return mois.map((m, i) => {
+      // Revenu = tout ce qui a été encaissé (datePaiement) dans ce mois, quelle que soit la période couverte
       const revenusMois = paiementsAffiches
-        .filter((p) => p.mois === i + 1 && p.statut === "payé")
+        .filter((p) =>
+          p.statut === "payé" && p.datePaiement &&
+          new Date(p.datePaiement).getMonth() === i &&
+          new Date(p.datePaiement).getFullYear() === annee
+        )
         .reduce((sum, p) => sum + p.montant, 0);
       return { mois: m, revenu: revenusMois };
     });
@@ -737,12 +743,19 @@ Cette quittance vaut preuve de paiement du loyer pour le mois de ${moisNom} ${an
     setPaiements(paiementsUpdated);
 
     // 2. Catégories (sur tous les paiements, pas filtrés)
+    // payesDuMois = loyers de ce mois validés dans ce même mois (paiement à temps)
     const payesDuMois = paiementsUpdated.filter(
-      (p) => p.mois === moisNum && (p.annee || annee) === annee && p.statut === "payé"
+      (p) =>
+        p.mois === moisNum && (p.annee || annee) === annee && p.statut === "payé" &&
+        p.datePaiement &&
+        new Date(p.datePaiement).getMonth() + 1 === moisNum &&
+        new Date(p.datePaiement).getFullYear() === annee
     );
+    // arrieresDuMois = loyers d'autres mois encaissés pendant ce mois de clôture
     const arrieresDuMois = paiementsUpdated.filter(
       (p) =>
-        p.mois !== moisNum && p.statut === "payé" && p.datePaiement &&
+        (p.mois !== moisNum || (p.annee || annee) !== annee) &&
+        p.statut === "payé" && p.datePaiement &&
         new Date(p.datePaiement).getMonth() + 1 === moisNum &&
         new Date(p.datePaiement).getFullYear() === annee
     );
@@ -1396,8 +1409,14 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
 
               {/* Recouvrement du mois */}
               {(() => {
+                const nowYear = new Date().getFullYear();
+                const nowMonth = getMoisActuel();
                 const revenuMois = paiements
-                  .filter((p) => p.mois === getMoisActuel() && p.statut === "payé")
+                  .filter((p) =>
+                    p.statut === "payé" && p.datePaiement &&
+                    new Date(p.datePaiement).getMonth() + 1 === nowMonth &&
+                    new Date(p.datePaiement).getFullYear() === nowYear
+                  )
                   .reduce((sum, p) => sum + p.montant, 0);
                 return (
                   <div onClick={() => setActivePage("finances")} style={{ background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", color: "#fff", borderRadius: 12, padding: "20px 28px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(26,35,126,0.25)", cursor: "pointer" }}>
@@ -2334,8 +2353,14 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
 
           {/* Carte recouvrement du mois actuel */}
           {(() => {
+            const nowYear = new Date().getFullYear();
+            const nowMonth = getMoisActuel();
             const revenuMois = paiementsAffiches
-              .filter((p) => p.mois === getMoisActuel() && p.statut === "payé")
+              .filter((p) =>
+                p.statut === "payé" && p.datePaiement &&
+                new Date(p.datePaiement).getMonth() + 1 === nowMonth &&
+                new Date(p.datePaiement).getFullYear() === nowYear
+              )
               .reduce((sum, p) => sum + p.montant, 0);
             return (
               <div style={{ background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", color: "#fff", borderRadius: 12, padding: "20px 28px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(26,35,126,0.25)" }}>
@@ -2456,13 +2481,19 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   const isPast = moisNum < currentMonth;
                   const isCurrent = moisNum === currentMonth;
 
-                  // Paiements du mois (loyer couvrant ce mois) — filtrés selon vue active
+                  // payesMois = loyers de ce mois validés dans ce même mois (à temps)
                   const payesMois = paiementsAffiches.filter(
-                    (p) => p.mois === moisNum && (p.annee || annee) === annee && p.statut === "payé"
+                    (p) =>
+                      p.mois === moisNum && (p.annee || annee) === annee && p.statut === "payé" &&
+                      p.datePaiement &&
+                      new Date(p.datePaiement).getMonth() + 1 === moisNum &&
+                      new Date(p.datePaiement).getFullYear() === annee
                   );
+                  // arrieresMois = loyers d'autres mois encaissés pendant ce mois
                   const arrieresMois = paiementsAffiches.filter(
                     (p) =>
-                      p.mois !== moisNum && p.statut === "payé" && p.datePaiement &&
+                      (p.mois !== moisNum || (p.annee || annee) !== annee) &&
+                      p.statut === "payé" && p.datePaiement &&
                       new Date(p.datePaiement).getMonth() + 1 === moisNum &&
                       new Date(p.datePaiement).getFullYear() === annee
                   );
