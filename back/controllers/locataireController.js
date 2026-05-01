@@ -252,3 +252,16 @@ export const updateEtatDesLieux = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const deletePaiement = async (req, res) => {
+  try {
+    const { paiementId } = req.params;
+    const locataire = await Locataire.findOne({ "paiements._id": paiementId });
+    if (!locataire) return res.status(404).json({ message: "Paiement introuvable" });
+    locataire.paiements.id(paiementId).deleteOne();
+    await locataire.save();
+    res.status(200).json({ message: "Paiement supprimé" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

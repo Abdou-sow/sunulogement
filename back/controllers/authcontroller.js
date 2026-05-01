@@ -159,3 +159,16 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const verifyPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "Utilisateur introuvable" });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ message: "Mot de passe incorrect" });
+    res.status(200).json({ valid: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

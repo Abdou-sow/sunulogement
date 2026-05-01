@@ -10,6 +10,7 @@ import {
   marquerPaiementImpaye,
   updateEtatDesLieux,
   autoMarkUnpaid,
+  deletePaiement,
 } from "../controllers/locataireController.js";
 
 const router = express.Router();
@@ -24,6 +25,7 @@ const documentsFields = uploadLocataire.fields([
 router.post("/auto-mark-unpaid", protect, autoMarkUnpaid);
 router.patch("/paiement/:paiementId/impaye", protect, marquerPaiementImpaye);
 router.patch("/paiement/:paiementId", protect, marquerPaiementPaye);
+router.delete("/paiement/:paiementId", protect, deletePaiement);
 
 router.post("/", protect, documentsFields, createLocataire);
 router.get("/:proprietaireId", protect, getLocatairesByProprietaire);

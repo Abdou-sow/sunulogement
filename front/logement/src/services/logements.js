@@ -137,6 +137,31 @@ export const autoMarkUnpaid = async () => {
   return res.data;
 };
 
+// Supprimer un paiement
+export const deletePaiement = async (paiementId) => {
+  const res = await api.delete(`/locataires/paiement/${paiementId}`);
+  return res.data;
+};
+
+// Vérifier le mot de passe du propriétaire
+export const verifyPassword = async (password) => {
+  const res = await api.post("/auth/verify-password", { password });
+  return res.data;
+};
+
+// Documents client
+export const uploadClientDocument = async (clientId, formData) => {
+  const res = await api.post(`/clients/${clientId}/documents`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+export const deleteClientDocument = async (clientId, docId) => {
+  const res = await api.delete(`/clients/${clientId}/documents/${docId}`);
+  return res.data;
+};
+
 // Modérateur — autoriser un propriétaire
 export const autoriserProprietaire = async (id) => {
   const res = await api.patch(`/moderateur/proprietaires/${id}/autoriser`);

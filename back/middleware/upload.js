@@ -36,3 +36,9 @@ export const uploadLocataire = multer({
   fileFilter,
   limits,
 });
+
+export const uploadClient = multer({
+  storage: createStorage("clients"),
+  fileFilter,
+  limits,
+});

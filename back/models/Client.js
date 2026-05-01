@@ -12,6 +12,11 @@ const clientSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  documents: [{
+    nom: String,
+    url: String,
+    uploadedAt: { type: Date, default: Date.now }
+  }],
 }, { timestamps: true });
 
 export default mongoose.model("Client", clientSchema);

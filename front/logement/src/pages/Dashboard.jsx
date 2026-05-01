@@ -21,6 +21,10 @@ import {
   updateLocataireById,
   createPaiement,
   autoMarkUnpaid,
+  deletePaiement,
+  verifyPassword,
+  uploadClientDocument,
+  deleteClientDocument,
   // candidatures
   getCandidaturesByProprietaireId,
   deleteCandidature,
@@ -148,6 +152,20 @@ function Dashboard() {
   const [editingClient, setEditingClient] = useState(null);
   const [clientForm, setClientForm] = useState({ nom: "", prenom: "", email: "", telephone: "", adresse: "", notes: "" });
   const [locClientId, setLocClientId] = useState(""); // client sélectionné lors de l'ajout d'un logement
+
+  // --- Modal confirmation mot de passe ---
+  const [pwdModal, setPwdModal] = useState({ open: false, loading: false, error: "", value: "", onConfirm: null, title: "" });
+
+  // --- Réglages : révision paiement ---
+  const [revLocataireId, setRevLocataireId] = useState("");
+  const [revPaiementId, setRevPaiementId] = useState("");
+
+  // --- Dossier client ---
+  const [showClientDossier, setShowClientDossier] = useState(false);
+  const [clientDossierTarget, setClientDossierTarget] = useState(null);
+  const [clientDocFile, setClientDocFile] = useState(null);
+  const [clientDocLoading, setClientDocLoading] = useState(false);
+  const [clientsData, setClientsData] = useState({}); // { clientId: [documents] }
 
   // --- États pour gestion avancée candidatures ---
   const [showCandidatureDetailModal, setShowCandidatureDetailModal] = useState(false);
@@ -357,16 +375,30 @@ function Dashboard() {
     }
   };
 
-  // --- Supprimer logement ---
-  const handleDelete = async (_id) => {
-    if (!window.confirm("Supprimer ce logement ?")) return;
+  // --- Modal mot de passe : helper ---
+  const openPwdModal = (title, onConfirm) => {
+    setPwdModal({ open: true, loading: false, error: "", value: "", onConfirm, title });
+  };
+  const closePwdModal = () => setPwdModal({ open: false, loading: false, error: "", value: "", onConfirm: null, title: "" });
+  const handlePwdConfirm = async () => {
+    if (!pwdModal.value) { setPwdModal((p) => ({ ...p, error: "Saisissez votre mot de passe" })); return; }
+    setPwdModal((p) => ({ ...p, loading: true, error: "" }));
     try {
+      await verifyPassword(pwdModal.value);
+      closePwdModal();
+      await pwdModal.onConfirm();
+    } catch {
+      setPwdModal((p) => ({ ...p, loading: false, error: "Mot de passe incorrect" }));
+    }
+  };
+
+  // --- Supprimer logement ---
+  const handleDelete = (_id) => {
+    openPwdModal("Confirmer la suppression du logement", async () => {
       await deleteLogement(_id);
       setMesAnnonces((prev) => prev.filter((a) => a._id !== _id));
-    } catch (err) {
-      console.error(err);
-      toast("Erreur suppression", "error");
-    }
+      toast("Logement supprimé", "success");
+    });
   };
 
   // --- Modifier logement ---
@@ -864,6 +896,20 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     `.trim();
   };
 
+  // --- Réglages : supprimer un paiement ---
+  const handleDeletePaiement = (paiementId) => {
+    openPwdModal("Confirmer la suppression du paiement", async () => {
+      await deletePaiement(paiementId);
+      setPaiements((prev) => prev.filter((p) => p._id !== paiementId));
+      setLocataires((prev) => prev.map((l) => ({
+        ...l,
+        paiements: (l.paiements || []).filter((p) => p._id !== paiementId),
+      })));
+      setRevPaiementId("");
+      toast("Paiement supprimé", "success");
+    });
+  };
+
   const handlePreviewQuittance = (locataire, paiement) => {
     const moisNom = mois[(paiement.mois || 1) - 1];
     const annee = paiement.annee || new Date().getFullYear();
@@ -1121,15 +1167,50 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     }
   };
 
-  const handleDeleteClient = async (id) => {
-    if (!window.confirm("Supprimer ce client ? Ses logements resteront mais ne seront plus liés à lui.")) return;
-    try {
+  const handleDeleteClient = (id) => {
+    openPwdModal("Confirmer la suppression du client", async () => {
       await deleteClientService(id);
       setClients((prev) => prev.filter((c) => c._id !== id));
       if (filtreClient === id) setFiltreClient("all");
-    } catch (err) {
-      toast("Erreur suppression client", "error");
+      toast("Client supprimé", "success");
+    });
+  };
+
+  // --- Dossier client : upload document ---
+  const handleUploadClientDoc = async (clientId) => {
+    if (!clientDocFile) { toast("Sélectionner un fichier", "warning"); return; }
+    setClientDocLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("document", clientDocFile);
+      const doc = await uploadClientDocument(clientId, fd);
+      setClientsData((prev) => ({
+        ...prev,
+        [clientId]: [...(prev[clientId] || []), doc],
+      }));
+      setClientDocFile(null);
+      toast("Document ajouté", "success");
+    } catch { toast("Erreur upload", "error"); }
+    finally { setClientDocLoading(false); }
+  };
+
+  const handleDeleteClientDoc = async (clientId, docId) => {
+    openPwdModal("Confirmer la suppression du document", async () => {
+      await deleteClientDocument(clientId, docId);
+      setClientsData((prev) => ({
+        ...prev,
+        [clientId]: (prev[clientId] || []).filter((d) => d._id !== docId),
+      }));
+      toast("Document supprimé", "success");
+    });
+  };
+
+  const openClientDossier = (c) => {
+    setClientDossierTarget(c);
+    if (!clientsData[c._id]) {
+      setClientsData((prev) => ({ ...prev, [c._id]: c.documents || [] }));
     }
+    setShowClientDossier(true);
   };
 
   const openEditClient = (c) => {
@@ -1304,6 +1385,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     { id: "finances",    icon: "💰", label: "Revenus & Finances" },
     { id: "clients",     icon: "🤝", label: "Mes clients", badge: clients.length || null },
     { id: "reservations",icon: "📅", label: "Réservations", badge: candidatures.length || null },
+    { id: "reglages",    icon: "⚙️", label: "Réglages" },
   ];
 
   const pageTitles = {
@@ -1313,6 +1395,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     finances:     "Revenus & Finances",
     clients:      "Mes clients (bailleurs)",
     reservations: "Réservations & Candidatures",
+    reglages:     "Réglages",
   };
 
   return (
@@ -1492,6 +1575,9 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <button onClick={(e) => { e.stopPropagation(); openEditClient(c); }}
                           style={{ background: "#1976d2", color: "#fff", border: "none", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>✏️</button>
+                        <button onClick={(e) => { e.stopPropagation(); openClientDossier(c); }}
+                          title="Dossier documents"
+                          style={{ background: "#FF9800", color: "#fff", border: "none", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>📁</button>
                         <button onClick={(e) => { e.stopPropagation(); handleDeleteClient(c._id); }}
                           style={{ background: "#f44336", color: "#fff", border: "none", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>🗑️</button>
                       </div>
@@ -1950,8 +2036,9 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                             </button>
                             <button
                               onClick={() => openDossierLocataire(l)}
+                              title={!(l.pieceIdentite && l.contratBail && l.etatDesLieux) ? "Dossier incomplet" : "Voir dossier"}
                               style={{
-                                background: "#FF9800",
+                                background: !(l.pieceIdentite && l.contratBail && l.etatDesLieux) ? "#f44336" : "#FF9800",
                                 color: "#fff",
                                 border: "none",
                                 padding: "4px 6px",
@@ -2135,7 +2222,20 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         {showDossierModal && selectedLocataireDossier && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
             <div style={{ width: 700, background: "#fff", padding: 20, borderRadius: 8, maxHeight: "80vh", overflowY: "auto" }}>
-              <h3 style={{ marginTop: 0 }}>Dossier de {selectedLocataireDossier.nom} {selectedLocataireDossier.prenom}</h3>
+              {(() => {
+                const loc = selectedLocataireDossier;
+                const dossierComplet = !!(loc.pieceIdentite && loc.contratBail && loc.etatDesLieux);
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                    <h3 style={{ margin: 0 }}>Dossier de {loc.nom} {loc.prenom}</h3>
+                    {dossierComplet ? (
+                      <span style={{ background: "#e8f5e9", color: "#2e7d32", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>✅ Complet</span>
+                    ) : (
+                      <span style={{ background: "#fdecea", color: "#c62828", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>⚠️ Incomplet</span>
+                    )}
+                  </div>
+                );
+              })()}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div>
                   <h4>Informations personnelles</h4>
@@ -2155,56 +2255,35 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
               <div style={{ marginTop: 20 }}>
                 <h4>Documents</h4>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {selectedLocataireDossier.pieceIdentite && (
-                    <a
-                      href={getImageUrl(selectedLocataireDossier.pieceIdentite)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        background: "#1976d2",
-                        color: "#fff",
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        textDecoration: "none",
-                        display: "inline-block"
-                      }}
-                    >
+                  {selectedLocataireDossier.pieceIdentite ? (
+                    <a href={getImageUrl(selectedLocataireDossier.pieceIdentite)} target="_blank" rel="noopener noreferrer"
+                      style={{ background: "#1976d2", color: "#fff", padding: "8px 12px", borderRadius: 6, textDecoration: "none" }}>
                       📄 Pièce d'identité
                     </a>
+                  ) : (
+                    <span style={{ background: "#fdecea", color: "#c62828", padding: "8px 12px", borderRadius: 6, fontSize: 13 }}>
+                      ⚠️ Pièce d'identité manquante
+                    </span>
                   )}
-                  {selectedLocataireDossier.etatDesLieux && (
-                    <a
-                      href={getImageUrl(selectedLocataireDossier.etatDesLieux)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        background: "#1976d2",
-                        color: "#fff",
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        textDecoration: "none",
-                        display: "inline-block"
-                      }}
-                    >
-                      📄 État des lieux
-                    </a>
-                  )}
-                  {selectedLocataireDossier.contratBail && (
-                    <a
-                      href={getImageUrl(selectedLocataireDossier.contratBail)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        background: "#1976d2",
-                        color: "#fff",
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        textDecoration: "none",
-                        display: "inline-block"
-                      }}
-                    >
+                  {selectedLocataireDossier.contratBail ? (
+                    <a href={getImageUrl(selectedLocataireDossier.contratBail)} target="_blank" rel="noopener noreferrer"
+                      style={{ background: "#1976d2", color: "#fff", padding: "8px 12px", borderRadius: 6, textDecoration: "none" }}>
                       📄 Contrat de bail
                     </a>
+                  ) : (
+                    <span style={{ background: "#fdecea", color: "#c62828", padding: "8px 12px", borderRadius: 6, fontSize: 13 }}>
+                      ⚠️ Contrat de bail manquant
+                    </span>
+                  )}
+                  {selectedLocataireDossier.etatDesLieux ? (
+                    <a href={getImageUrl(selectedLocataireDossier.etatDesLieux)} target="_blank" rel="noopener noreferrer"
+                      style={{ background: "#1976d2", color: "#fff", padding: "8px 12px", borderRadius: 6, textDecoration: "none" }}>
+                      📄 État des lieux
+                    </a>
+                  ) : (
+                    <span style={{ background: "#fdecea", color: "#c62828", padding: "8px 12px", borderRadius: 6, fontSize: 13 }}>
+                      ⚠️ État des lieux manquant
+                    </span>
                   )}
                 </div>
               </div>
@@ -2346,6 +2425,88 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
             </div>
           </div>
         )}
+
+          {/* ===== PAGE : RÉGLAGES ===== */}
+          {activePage === "reglages" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+              {/* --- Révision de paiement --- */}
+              <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <h3 style={{ margin: "0 0 18px", color: "#0a2540", borderBottom: "1px solid #f0f2f8", paddingBottom: 10 }}>
+                  🔍 Révision de paiement
+                </h3>
+                <p style={{ color: "#666", fontSize: 13, marginTop: 0 }}>
+                  Sélectionnez un locataire pour visualiser et supprimer un paiement enregistré par erreur.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 480 }}>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Locataire</label>
+                    <select value={revLocataireId} onChange={(e) => { setRevLocataireId(e.target.value); setRevPaiementId(""); }}
+                      style={{ width: "100%", marginTop: 4 }}>
+                      <option value="">-- Sélectionner un locataire --</option>
+                      {locataires.map((l) => (
+                        <option key={l._id} value={l._id}>
+                          {l.nom} {l.prenom} — {l.logementId?.titre || "logement inconnu"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {revLocataireId && (() => {
+                    const loc = locataires.find((l) => l._id === revLocataireId);
+                    const locPaiements = paiements.filter((p) => String(p.locataireId) === revLocataireId);
+                    return (
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>
+                          Logement : <span style={{ color: "#1976d2", textTransform: "none" }}>{loc?.logementId?.titre || "-"}</span>
+                        </label>
+                        <div style={{ marginTop: 10 }}>
+                          <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Paiements</label>
+                          {locPaiements.length === 0 ? (
+                            <p style={{ color: "#aaa", fontSize: 13 }}>Aucun paiement enregistré.</p>
+                          ) : (
+                            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
+                              <thead>
+                                <tr style={{ background: "#f5f7fa" }}>
+                                  <th style={{ padding: "8px 10px", textAlign: "left" }}>Mois</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left" }}>Montant</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left" }}>Statut</th>
+                                  <th style={{ padding: "8px 10px" }}></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {locPaiements.map((p) => (
+                                  <tr key={p._id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                                    <td style={{ padding: "8px 10px" }}>{mois[(p.mois || 1) - 1]} {p.annee || ""}</td>
+                                    <td style={{ padding: "8px 10px", fontWeight: 600 }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
+                                    <td style={{ padding: "8px 10px" }}>
+                                      <span style={{
+                                        background: p.statut === "payé" ? "#e8f5e9" : p.statut === "impayé" ? "#fdecea" : "#fff8e1",
+                                        color: p.statut === "payé" ? "#2e7d32" : p.statut === "impayé" ? "#c62828" : "#e65100",
+                                        borderRadius: 12, padding: "2px 10px", fontSize: 11, fontWeight: 700
+                                      }}>{p.statut}</span>
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                                      <button
+                                        onClick={() => handleDeletePaiement(p._id)}
+                                        style={{ background: "#f44336", color: "#fff", border: "none", padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}
+                                      >
+                                        🗑️ Supprimer
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+            </div>
+          )}
 
           {/* ===== PAGE : FINANCES ===== */}
           {activePage === "finances" && (
@@ -3046,6 +3207,101 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
           <div style={{ width: '100%', height: '100%', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             <img src={selectedPhotoUrl} alt="" style={{ maxWidth: '100vw', maxHeight: '100vh', width: '100vh', height: '100vh', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
             <button type="button" onClick={() => setShowPhotoModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer' }}>×</button>
+          </div>
+        </div>
+      )}
+
+      {/* --- Modal confirmation mot de passe --- */}
+      {pwdModal.open && (
+        <div className="modal-backdrop" style={{ zIndex: 2100 }} onClick={closePwdModal}>
+          <div className="modal" style={{ maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 6px", color: "#0a2540", fontSize: 17 }}>🔐 Confirmation</h3>
+            <p style={{ color: "#555", fontSize: 13, margin: "0 0 16px" }}>{pwdModal.title}</p>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase" }}>Votre mot de passe</label>
+            <div className="auth-input-wrap" style={{ marginTop: 6 }}>
+              <input
+                type="password"
+                className="auth-input"
+                placeholder="Mot de passe"
+                value={pwdModal.value}
+                autoFocus
+                onChange={(e) => setPwdModal((p) => ({ ...p, value: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && handlePwdConfirm()}
+              />
+            </div>
+            {pwdModal.error && <p style={{ color: "#f44336", fontSize: 13, margin: "8px 0 0" }}>{pwdModal.error}</p>}
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button
+                onClick={handlePwdConfirm}
+                disabled={pwdModal.loading}
+                style={{ flex: 1, background: "#f44336", color: "#fff", border: "none", padding: "10px", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}
+              >
+                {pwdModal.loading ? "Vérification…" : "Confirmer"}
+              </button>
+              <button onClick={closePwdModal} style={{ flex: 1, background: "#f5f5f5", border: "none", padding: "10px", borderRadius: 8, cursor: "pointer" }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Modal dossier client --- */}
+      {showClientDossier && clientDossierTarget && (
+        <div className="modal-backdrop" style={{ zIndex: 2000 }} onClick={() => setShowClientDossier(false)}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: "#0a2540" }}>📁 Dossier — {clientDossierTarget.nom} {clientDossierTarget.prenom || ""}</h3>
+              <button onClick={() => setShowClientDossier(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#888" }}>×</button>
+            </div>
+
+            {/* Liste documents */}
+            <div style={{ marginBottom: 20 }}>
+              {(clientsData[clientDossierTarget._id] || []).length === 0 ? (
+                <p style={{ color: "#aaa", fontSize: 13 }}>Aucun document pour l'instant.</p>
+              ) : (
+                <table className="table" style={{ fontSize: 13 }}>
+                  <thead><tr><th>Nom du fichier</th><th>Date</th><th></th></tr></thead>
+                  <tbody>
+                    {(clientsData[clientDossierTarget._id] || []).map((doc) => (
+                      <tr key={doc._id}>
+                        <td>
+                          <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1976d2", textDecoration: "none", fontWeight: 600 }}>
+                            📄 {doc.nom}
+                          </a>
+                        </td>
+                        <td style={{ color: "#888" }}>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString("fr-FR") : "-"}</td>
+                        <td>
+                          <button
+                            onClick={() => handleDeleteClientDoc(clientDossierTarget._id, doc._id)}
+                            style={{ background: "#fdecea", color: "#c62828", border: "none", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}
+                          >🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Upload nouveau document */}
+            <div style={{ borderTop: "1px solid #f0f2f8", paddingTop: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase" }}>Ajouter un document</label>
+              <div style={{ display: "flex", gap: 10, marginTop: 8, alignItems: "center" }}>
+                <input
+                  type="file"
+                  style={{ flex: 1, fontSize: 13 }}
+                  onChange={(e) => setClientDocFile(e.target.files[0] || null)}
+                />
+                <button
+                  onClick={() => handleUploadClientDoc(clientDossierTarget._id)}
+                  disabled={!clientDocFile || clientDocLoading}
+                  style={{ background: "#1976d2", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}
+                >
+                  {clientDocLoading ? "Envoi…" : "Uploader"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
