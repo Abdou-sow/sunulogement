@@ -158,7 +158,6 @@ function Dashboard() {
 
   // --- Réglages : révision paiement ---
   const [revLocataireId, setRevLocataireId] = useState("");
-  const [revPaiementId, setRevPaiementId] = useState("");
 
   // --- Dossier client ---
   const [showClientDossier, setShowClientDossier] = useState(false);
@@ -905,7 +904,6 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         ...l,
         paiements: (l.paiements || []).filter((p) => p._id !== paiementId),
       })));
-      setRevPaiementId("");
       toast("Paiement supprimé", "success");
     });
   };
@@ -2441,7 +2439,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 480 }}>
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Locataire</label>
-                    <select value={revLocataireId} onChange={(e) => { setRevLocataireId(e.target.value); setRevPaiementId(""); }}
+                    <select value={revLocataireId} onChange={(e) => setRevLocataireId(e.target.value)}
                       style={{ width: "100%", marginTop: 4 }}>
                       <option value="">-- Sélectionner un locataire --</option>
                       {locataires.map((l) => (
