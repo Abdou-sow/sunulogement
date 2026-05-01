@@ -65,6 +65,15 @@ export const updateLogement = async (req, res) => {
     const { titre, type, region, commune, localisation, description, prix, etat } = req.body;
     const newImages = req.files?.map((f) => f.path) || [];
 
+    // Images existantes à conserver (envoyées par le frontend)
+    let keepImages = req.body.keepImages;
+    if (keepImages !== undefined) {
+      if (!Array.isArray(keepImages)) keepImages = [keepImages];
+      logement.images = [...keepImages, ...newImages];
+    } else if (newImages.length > 0) {
+      logement.images = [...logement.images, ...newImages];
+    }
+
     if (titre !== undefined) logement.titre = titre;
     if (type !== undefined) logement.type = type;
     if (region !== undefined) logement.region = region;
@@ -74,7 +83,6 @@ export const updateLogement = async (req, res) => {
     if (prix !== undefined) logement.prix = prix;
     if (etat !== undefined) logement.etat = etat;
     if (req.body.clientId !== undefined) logement.clientId = req.body.clientId || null;
-    if (newImages.length > 0) logement.images = [...logement.images, ...newImages];
 
     await logement.save();
     res.status(200).json(logement);

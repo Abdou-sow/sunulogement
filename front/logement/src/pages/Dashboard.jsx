@@ -82,7 +82,8 @@ function Dashboard() {
   const [editPrix, setEditPrix] = useState("");
   const [editLocalisation, setEditLocalisation] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editImages, setEditImages] = useState([]);
+  const [editImages, setEditImages] = useState([]); // URLs existantes (strings)
+  const [editNewImages, setEditNewImages] = useState([]); // nouveaux fichiers (File objects)
 
   // --- Tri / recherche locataires ---
   const [searchLoc, setSearchLoc] = useState("");
@@ -380,6 +381,7 @@ function Dashboard() {
     setEditLocalisation(annonce.localisation || "");
     setEditDescription(annonce.description || "");
     setEditImages(annonce.images || []);
+    setEditNewImages([]);
     setShowEditModal(true);
   };
 
@@ -394,17 +396,17 @@ function Dashboard() {
       formData.append("prix", editPrix);
       formData.append("localisation", editLocalisation);
       formData.append("description", editDescription);
-      // For images, append new ones, but for delete, assume backend handles or send list
-      // For simplicity, append all current images as strings, and new files
-      editImages.forEach((img) => {
-        formData.append("images", img);
-      });
+      // URLs existantes à conserver
+      editImages.forEach((url) => formData.append("keepImages", url));
+      // Nouveaux fichiers à uploader
+      editNewImages.forEach((file) => formData.append("images", file));
       const res = await updateLogementById(editingId, formData);
       setMesAnnonces((prev) =>
         prev.map((a) => (a._id === editingId ? res : a))
       );
       setShowEditModal(false);
       setEditingId(null);
+      setEditNewImages([]);
     } catch (err) {
       console.error(err);
       toast("Erreur modification", "error");
@@ -2435,22 +2437,34 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
 
           {/* --- Modal revenus mensuels --- */}
           {moisSelectionne && (
-            <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ background: "white", padding: "2rem", borderRadius: "12px", width: "70%" }}>
-                <h3>Revenus de {moisSelectionne}</h3>
-                <table border="1" cellPadding="10">
-                  <thead><tr><th>Logement</th><th>Montant</th><th>Locataire</th></tr></thead>
+            <div className="modal-backdrop" style={{ zIndex: 2000 }} onClick={() => setMoisSelectionne(null)}>
+              <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, color: "#0a2540" }}>Encaissements — {moisSelectionne}</h3>
+                  <button onClick={() => setMoisSelectionne(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#888" }}>×</button>
+                </div>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Logement</th>
+                      <th>Locataire</th>
+                      <th>Montant</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {logementsDuMois(mois.indexOf(moisSelectionne)).map((p) => (
-                      <tr key={p._id}>
-                        <td>{p.logementTitre || p.logement?.titre || "-"}</td>
-                        <td>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
-                        <td>{p.locataireNom || "-"}</td>
-                      </tr>
-                    ))}
+                    {logementsDuMois(mois.indexOf(moisSelectionne)).length === 0 ? (
+                      <tr><td colSpan={3} style={{ color: "#aaa", textAlign: "center" }}>Aucun encaissement ce mois</td></tr>
+                    ) : (
+                      logementsDuMois(mois.indexOf(moisSelectionne)).map((p) => (
+                        <tr key={p._id}>
+                          <td>{p.logementTitre || "-"}</td>
+                          <td>{p.locataireNom || "-"}</td>
+                          <td style={{ fontWeight: 700, color: "#2e7d32" }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
-                <button onClick={() => setMoisSelectionne(null)}>Fermer</button>
               </div>
             </div>
           )}
@@ -2972,28 +2986,40 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 <label>Description: <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows="6" placeholder="Adresse, Surface, Type, Nombre de pièces, Description..." /></label>
               </div>
               <div style={{ marginBottom: '10px' }}>
-                <label>Photos:</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                  {editImages.map((img, index) => {
-                    const url = typeof img === 'string' ? getImageUrl(img) : URL.createObjectURL(img);
-                    return (
-                      <div key={index} style={{ position: 'relative' }}>
-                        <img
-                          src={url}
-                          width={100}
-                          alt=""
-                          style={{ cursor: 'pointer', borderRadius: '6px', border: '1px solid #ddd' }}
-                          onClick={() => {
-                            setSelectedPhotoUrl(url);
-                            setShowPhotoModal(true);
-                          }}
-                        />
-                        <button type="button" onClick={() => setEditImages(editImages.filter((_, i) => i !== index))} style={{ position: 'absolute', top: 0, right: 0, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer' }}>X</button>
-                      </div>
-                    );
-                  })}
+                <label style={{ fontWeight: 600 }}>Photos existantes :</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: 6 }}>
+                  {editImages.length === 0 && <span style={{ color: '#aaa', fontSize: 13 }}>Aucune photo</span>}
+                  {editImages.map((url, index) => (
+                    <div key={index} style={{ position: 'relative' }}>
+                      <img
+                        src={getImageUrl(url)}
+                        width={100}
+                        alt=""
+                        style={{ cursor: 'pointer', borderRadius: '6px', border: '1px solid #ddd' }}
+                        onClick={() => { setSelectedPhotoUrl(getImageUrl(url)); setShowPhotoModal(true); }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditImages(editImages.filter((_, i) => i !== index))}
+                        style={{ position: 'absolute', top: 0, right: 0, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: 12 }}
+                      >×</button>
+                    </div>
+                  ))}
                 </div>
-                <input type="file" multiple onChange={(e) => setEditImages([...editImages, ...Array.from(e.target.files)])} />
+                <label style={{ fontWeight: 600, display: 'block', marginTop: 10 }}>Ajouter de nouvelles photos :</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: 6 }}>
+                  {editNewImages.map((file, index) => (
+                    <div key={index} style={{ position: 'relative' }}>
+                      <img src={URL.createObjectURL(file)} width={100} alt="" style={{ borderRadius: '6px', border: '2px solid #4CAF50' }} />
+                      <button
+                        type="button"
+                        onClick={() => setEditNewImages(editNewImages.filter((_, i) => i !== index))}
+                        style={{ position: 'absolute', top: 0, right: 0, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: 12 }}
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+                <input type="file" multiple style={{ marginTop: 8 }} onChange={(e) => setEditNewImages([...editNewImages, ...Array.from(e.target.files)])} />
               </div>
               <div>
                 <button type="submit">Enregistrer</button>
