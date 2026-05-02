@@ -22,6 +22,7 @@ import {
   createPaiement,
   autoMarkUnpaid,
   deletePaiement,
+  deleteLocataireById,
   verifyPassword,
   uploadClientDocument,
   deleteClientDocument,
@@ -47,12 +48,13 @@ import {
   Cell,
 } from "recharts";
 import { getRegistres, saveRegistre, deleteRegistre as deleteRegistreApi } from "../services/registres";
+import { updateProfile as updateProfileService } from "../services/auth";
 import { useToast } from "../components/Toast";
 import "../styles/Dashboard.css";
 import "../styles/DashboardLayout.css";
 
 function Dashboard() {
-  const { user, logout } = useUser();
+  const { user, logout, updateUser } = useUser();
   const toast = useToast();
 
   const [mesAnnonces, setMesAnnonces] = useState([]);
@@ -62,6 +64,7 @@ function Dashboard() {
   const [candidatures, setCandidatures] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [moisSelectionne, setMoisSelectionne] = useState(null);
+  const [pieModalFiltre, setPieModalFiltre] = useState(null); // null | "payé" | "attente"
 
   // --- États pour ajout logement ---
   const [titre, setTitre] = useState("");
@@ -136,6 +139,9 @@ function Dashboard() {
   // --- État des lieux ---
   const [showEtatDesLieux, setShowEtatDesLieux] = useState(false);
   const [edlLocataire, setEdlLocataire] = useState(null);
+  const [showEDLSortie, setShowEDLSortie] = useState(false);
+  const [edlSortieLocataire, setEdlSortieLocataire] = useState(null);
+  const [reglagesLocataireId, setReglagesLocataireId] = useState("");
 
   // --- États quittances & notifications ---
   const [showQuittancePreviewModal, setShowQuittancePreviewModal] = useState(false);
@@ -156,8 +162,22 @@ function Dashboard() {
   // --- Modal confirmation mot de passe ---
   const [pwdModal, setPwdModal] = useState({ open: false, loading: false, error: "", value: "", onConfirm: null, title: "" });
 
+  // --- Modal fin de contrat / clôture locataire ---
+  const [cloturModal, setCloturModal] = useState(null);
+  // { locataire, step: 'choix'|'renouveler'|'etatLieux'|'logement', nouveauFin: '', etatDesLieuxFile: null, etatDesLieuxLoading: false }
+
   // --- Réglages : révision paiement ---
   const [revLocataireId, setRevLocataireId] = useState("");
+
+  // --- États profil utilisateur ---
+  const [profileName, setProfileName] = useState(user?.name || "");
+  const [profileEmail, setProfileEmail] = useState(user?.email || "");
+  const [profileTelephone, setProfileTelephone] = useState(user?.telephone || "");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // --- Dossier client ---
   const [showClientDossier, setShowClientDossier] = useState(false);
@@ -400,6 +420,42 @@ function Dashboard() {
     });
   };
 
+  // --- Supprimer locataire ---
+  const handleDeleteLocataire = (l) => {
+    openPwdModal(`Supprimer ${l.nom} ${l.prenom} ?`, async () => {
+      await deleteLocataireById(l._id, false);
+      setLocataires((prev) => prev.filter((x) => x._id !== l._id));
+      setMesAnnonces((prev) => prev.map((a) =>
+        String(a._id) === String(l.logementId?._id || l.logementId)
+          ? { ...a, etat: "disponible" }
+          : a
+      ));
+      toast("Locataire supprimé.", "success");
+    });
+  };
+
+  // --- Clôturer locataire (fin de contrat) ---
+  const ouvrirCloturModal = (l) => {
+    setCloturModal({ locataire: l, step: "choix", nouveauFin: "", etatDesLieuxFile: null, etatDesLieuxLoading: false });
+  };
+
+  const handleCloturerConfirm = (rendreDisponible) => {
+    const l = cloturModal.locataire;
+    openPwdModal(`Confirmer la clôture de ${l.nom} ${l.prenom}`, async () => {
+      await deleteLocataireById(l._id, rendreDisponible);
+      setLocataires((prev) => prev.filter((x) => x._id !== l._id));
+      if (rendreDisponible) {
+        setMesAnnonces((prev) => prev.map((a) =>
+          String(a._id) === String(l.logementId?._id || l.logementId)
+            ? { ...a, etat: "disponible" }
+            : a
+        ));
+      }
+      setCloturModal(null);
+      toast(`${l.nom} ${l.prenom} clôturé avec succès.`, "success");
+    });
+  };
+
   // --- Modifier logement ---
   const startEditing = (annonce) => {
     setEditingId(annonce._id);
@@ -482,12 +538,10 @@ function Dashboard() {
       // Nettoyage automatique si dossier issu d'une réservation
       if (pendingCleanup) {
         const { candidatureId, logementId } = pendingCleanup;
-        // Supprimer toutes les candidatures du logement (dont celle acceptée)
         const aSupprimer = candidatures.filter(
           (c) => String(c.logement?._id) === String(logementId)
         );
         await Promise.allSettled(aSupprimer.map((c) => deleteCandidature(c._id)));
-        // Supprimer aussi la candidature liée si elle n'est pas déjà dans la liste
         if (candidatureId && !aSupprimer.find((c) => c._id === candidatureId)) {
           await deleteCandidature(candidatureId).catch(() => {});
         }
@@ -496,9 +550,14 @@ function Dashboard() {
         );
         setPendingCleanup(null);
         toast("Locataire ajouté. Toutes les candidatures pour ce logement ont été supprimées.", "success");
+      } else {
+        toast("Locataire ajouté avec succès.", "success");
       }
 
       await fetchData();
+      setTimeout(() => {
+        document.getElementById("mes-locataires")?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
     } catch (err) {
       console.error(err);
       toast("Erreur ajout locataire", "error");
@@ -549,8 +608,8 @@ function Dashboard() {
     setEditLocPrenom(l.prenom || "");
     setEditLocEmail(l.email || "");
     setEditLocTelephone(l.telephone || "");
-    setEditLocDebut(l.dateDebutLocation || "");
-    setEditLocFin(l.dateFinLocation || "");
+    setEditLocDebut(l.dateDebutLocation ? new Date(l.dateDebutLocation).toISOString().split("T")[0] : "");
+    setEditLocFin(l.dateFinLocation ? new Date(l.dateFinLocation).toISOString().split("T")[0] : "");
     setEditLocPieceIdentite(l.pieceIdentite || null);
     setEditLocEtatDesLieux(l.etatDesLieux || null);
     setEditLocContratBail(l.contratBail || null);
@@ -581,6 +640,20 @@ function Dashboard() {
     } catch (err) {
       console.error("Erreur archivage EDL:", err);
       // Pas bloquant — le PDF a quand même été téléchargé
+    }
+  };
+
+  // --- Archiver état des lieux de sortie ---
+  const handleArchiveEDLSortie = async (formData, nomFichier) => {
+    try {
+      const api = (await import("../services/api")).default;
+      await api.patch(`/locataires/${edlSortieLocataire._id}/etat-des-lieux-sortie`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await fetchData();
+      toast(`État des lieux de sortie "${nomFichier}" archivé.`, "success");
+    } catch (err) {
+      console.error("Erreur archivage EDL sortie:", err);
     }
   };
 
@@ -1259,10 +1332,15 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         lignes.push(` ${String(i + 1).padStart(2)} | ${nom.substring(0, 23).padEnd(23)} | NON PAYÉ      | ${Number(p.montant).toLocaleString("fr-FR")} FCFA`);
       });
     }
+    const commission = Math.round(totalRecouvre * 0.1);
+    const netAVerser = totalRecouvre - commission;
     lignes.push(
       `----------------------------------------------------`,
       ``,
       ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} FCFA`,
+      ` Commission (10%): ${commission.toLocaleString("fr-FR")} FCFA`,
+      ` NET À VERSER    : ${netAVerser.toLocaleString("fr-FR")} FCFA`,
+      ``,
       ` Encaissements   : ${payesList.length + arrieresList.length}`,
       ` Impayés         : ${impayesList.length}`,
       ``,
@@ -1335,10 +1413,15 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
       });
     }
 
+    const commission = Math.round(totalRecouvre * 0.1);
+    const netAVerser = totalRecouvre - commission;
     lignes.push(
       `----------------------------------------------------`,
       ``,
       ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} FCFA`,
+      ` Commission (10%): ${commission.toLocaleString("fr-FR")} FCFA`,
+      ` NET À VERSER    : ${netAVerser.toLocaleString("fr-FR")} FCFA`,
+      ``,
       ` Encaissements   : ${payesList.length + arrieresList.length}`,
       ` Impayés         : ${impayesList.length}`,
       ``,
@@ -1501,12 +1584,22 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     new Date(p.datePaiement).getFullYear() === nowYear
                   )
                   .reduce((sum, p) => sum + p.montant, 0);
+                const commission = Math.round(revenuMois * 0.1);
+                const netAVerser = revenuMois - commission;
                 return (
                   <div onClick={() => setActivePage("finances")} style={{ background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", color: "#fff", borderRadius: 12, padding: "20px 28px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(26,35,126,0.25)", cursor: "pointer" }}>
                     <div>
                       <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 4 }}>Recouvrement {mois[getMoisActuel() - 1]} {new Date().getFullYear()}</div>
                       <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} FCFA</div>
-                      <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>Cliquer pour voir les finances →</div>
+                      <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
+                        <div style={{ fontSize: 12, opacity: 0.85 }}>
+                          Commission (10%) : <strong>{commission.toLocaleString("fr-FR")} FCFA</strong>
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.85 }}>
+                          Net à verser : <strong>{netAVerser.toLocaleString("fr-FR")} FCFA</strong>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>Cliquer pour voir les finances →</div>
                     </div>
                     <div style={{ fontSize: 48, opacity: 0.5 }}>💰</div>
                   </div>
@@ -2050,19 +2143,25 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                             {paiements.some(p => String(p.locataireId) === String(l._id) && p.statut === "payé") && (
                               <button
                                 onClick={() => generateQuittance(l)}
-                                style={{
-                                  background: "#9C27B0",
-                                  color: "#fff",
-                                  border: "none",
-                                  padding: "4px 6px",
-                                  borderRadius: 4,
-                                  cursor: "pointer",
-                                  fontSize: 10
-                                }}
+                                style={{ background: "#9C27B0", color: "#fff", border: "none", padding: "4px 6px", borderRadius: 4, cursor: "pointer", fontSize: 10 }}
                               >
                                 📄
                               </button>
                             )}
+                            <button
+                              onClick={() => ouvrirCloturModal(l)}
+                              title="Fin de contrat"
+                              style={{ background: "#FF9800", color: "#fff", border: "none", padding: "4px 6px", borderRadius: 4, cursor: "pointer", fontSize: 10 }}
+                            >
+                              🔚
+                            </button>
+                            <button
+                              onClick={() => handleDeleteLocataire(l)}
+                              title="Supprimer le locataire"
+                              style={{ background: "#f44336", color: "#fff", border: "none", padding: "4px 6px", borderRadius: 4, cursor: "pointer", fontSize: 10 }}
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -2428,6 +2527,181 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
           {activePage === "reglages" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
+              {/* --- Informations personnelles --- */}
+              <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <h3 style={{ margin: "0 0 18px", color: "#0a2540", borderBottom: "1px solid #f0f2f8", paddingBottom: 10 }}>
+                  👤 Informations personnelles
+                </h3>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!profileName.trim()) return toast("Le nom ne peut pas être vide.", "warning");
+                    setProfileLoading(true);
+                    try {
+                      const updated = await updateProfileService({ name: profileName, email: profileEmail, telephone: profileTelephone });
+                      updateUser(updated);
+                      toast("Informations mises à jour avec succès.", "success");
+                    } catch (err) {
+                      toast(err?.response?.data?.message || "Erreur lors de la mise à jour.", "error");
+                    } finally {
+                      setProfileLoading(false);
+                    }
+                  }}
+                  style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 440 }}
+                >
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Nom complet</label>
+                    <input
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      style={{ width: "100%", marginTop: 4, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Adresse email</label>
+                    <input
+                      type="email"
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      style={{ width: "100%", marginTop: 4, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Téléphone</label>
+                    <input
+                      type="tel"
+                      value={profileTelephone}
+                      onChange={(e) => setProfileTelephone(e.target.value)}
+                      placeholder="Ex: 77 123 45 67"
+                      style={{ width: "100%", marginTop: 4, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={profileLoading}
+                    style={{ alignSelf: "flex-start", background: "#1a237e", color: "#fff", border: "none", padding: "9px 22px", borderRadius: 6, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                  >
+                    {profileLoading ? "Enregistrement…" : "Enregistrer"}
+                  </button>
+                </form>
+              </div>
+
+              {/* --- Changer le mot de passe --- */}
+              <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <h3 style={{ margin: "0 0 18px", color: "#0a2540", borderBottom: "1px solid #f0f2f8", paddingBottom: 10 }}>
+                  🔒 Changer le mot de passe
+                </h3>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (newPassword !== confirmNewPassword) return toast("Les mots de passe ne correspondent pas.", "warning");
+                    if (newPassword.length < 6) return toast("Le nouveau mot de passe doit contenir au moins 6 caractères.", "warning");
+                    setPasswordLoading(true);
+                    try {
+                      await updateProfileService({ currentPassword, newPassword });
+                      toast("Mot de passe modifié avec succès.", "success");
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmNewPassword("");
+                    } catch (err) {
+                      toast(err?.response?.data?.message || "Erreur lors du changement de mot de passe.", "error");
+                    } finally {
+                      setPasswordLoading(false);
+                    }
+                  }}
+                  style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 440 }}
+                >
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Mot de passe actuel</label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      style={{ width: "100%", marginTop: 4, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Nouveau mot de passe</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={{ width: "100%", marginTop: 4, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Confirmer le nouveau mot de passe</label>
+                    <input
+                      type="password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      style={{ width: "100%", marginTop: 4, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                      required
+                    />
+                    {confirmNewPassword && newPassword !== confirmNewPassword && (
+                      <p style={{ color: "#c62828", fontSize: 12, margin: "4px 0 0" }}>Les mots de passe ne correspondent pas.</p>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    style={{ alignSelf: "flex-start", background: "#1a237e", color: "#fff", border: "none", padding: "9px 22px", borderRadius: 6, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                  >
+                    {passwordLoading ? "Modification…" : "Modifier le mot de passe"}
+                  </button>
+                </form>
+              </div>
+
+              {/* --- Gestion des contrats --- */}
+              <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <h3 style={{ margin: "0 0 18px", color: "#0a2540", borderBottom: "1px solid #f0f2f8", paddingBottom: 10 }}>
+                  📋 Gestion des contrats
+                </h3>
+                <p style={{ color: "#666", fontSize: 13, marginTop: 0 }}>
+                  Sélectionnez un locataire pour gérer son état des lieux de sortie ou clôturer son contrat.
+                </p>
+                <div style={{ maxWidth: 480 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Locataire</label>
+                  <select
+                    value={reglagesLocataireId}
+                    onChange={(e) => setReglagesLocataireId(e.target.value)}
+                    style={{ width: "100%", marginTop: 4, marginBottom: 14 }}
+                  >
+                    <option value="">-- Sélectionner un locataire --</option>
+                    {locataires.map((l) => (
+                      <option key={l._id} value={l._id}>
+                        {l.nom} {l.prenom} — {l.logementId?.titre || "logement inconnu"}
+                      </option>
+                    ))}
+                  </select>
+
+                  {reglagesLocataireId && (() => {
+                    const loc = locataires.find((l) => l._id === reglagesLocataireId);
+                    if (!loc) return null;
+                    return (
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <button
+                          onClick={() => { setEdlSortieLocataire(loc); setShowEDLSortie(true); }}
+                          style={{ background: "#7B1FA2", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 7, fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+                        >
+                          🏠 État des lieux de sortie
+                        </button>
+                        <button
+                          onClick={() => ouvrirCloturModal(loc)}
+                          style={{ background: "#e65100", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 7, fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+                        >
+                          🔚 Fin de contrat
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
               {/* --- Révision de paiement --- */}
               <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
                 <h3 style={{ margin: "0 0 18px", color: "#0a2540", borderBottom: "1px solid #f0f2f8", paddingBottom: 10 }}>
@@ -2523,6 +2797,8 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 new Date(p.datePaiement).getFullYear() === nowYear
               )
               .reduce((sum, p) => sum + p.montant, 0);
+            const commissionMois = Math.round(revenuMois * 0.1);
+            const netMois = revenuMois - commissionMois;
             return (
               <div style={{ background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", color: "#fff", borderRadius: 12, padding: "20px 28px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(26,35,126,0.25)" }}>
                 <div>
@@ -2530,6 +2806,14 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     Recouvrement de {mois[getMoisActuel() - 1]} {new Date().getFullYear()}
                   </div>
                   <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} FCFA</div>
+                  <div style={{ display: "flex", gap: 24, marginTop: 10 }}>
+                    <div style={{ fontSize: 13, opacity: 0.9 }}>
+                      Commission (10%) : <strong>{commissionMois.toLocaleString("fr-FR")} FCFA</strong>
+                    </div>
+                    <div style={{ fontSize: 13, opacity: 0.9 }}>
+                      Net à verser : <strong>{netMois.toLocaleString("fr-FR")} FCFA</strong>
+                    </div>
+                  </div>
                 </div>
                 <div style={{ fontSize: 44, opacity: 0.6 }}>💰</div>
               </div>
@@ -2551,12 +2835,11 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
             </div>
 
             {/* Pie Chart paiements mois actuel */}
-            {/* Pie Chart paiements mois actuel */}
             <div style={{ flex: 1, textAlign: "center" }}>
               <h4>Paiements de {mois[getMoisActuel() - 1]}</h4>
               {totalPaiementsMois > 0 ? (
                 <div>
-                  <PieChart width={350} height={350}>
+                  <PieChart width={350} height={350} style={{ cursor: "pointer" }}>
                     <Pie
                       data={dataPaiements}
                       cx="50%"
@@ -2567,17 +2850,18 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${value}`}
                       onClick={(entry) => {
-                        // Fonctionnalité supprimée - paiements gérés directement dans le tableau
+                        setPieModalFiltre(entry.name === "Payés" ? "payé" : "attente");
                       }}
                     >
                       {dataPaiements.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                        <Cell key={`cell-${index}`} fill={entry.fill} style={{ cursor: "pointer" }} />
                       ))}
                     </Pie>
                     <Tooltip />
                   </PieChart>
 
-                  <p style={{ marginTop: 12 }}>
+                  <p style={{ marginTop: 4, fontSize: 12, color: "#999" }}>Cliquez sur une section pour voir le détail</p>
+                  <p style={{ marginTop: 4 }}>
                     <span style={{ color: "#666" }}>
                       <strong>{dataPaiements[0].value}/{totalPaiementsMois}</strong> payés (
                       {((dataPaiements[0].value / totalPaiementsMois) * 100).toFixed(1)}%)
@@ -2591,8 +2875,76 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
 
           </div>
 
-          {/* --- Modal paiements (payés / en attente) - SUPPRIMÉ --- */}
-          {/* Ce modal n'est plus nécessaire car les paiements sont gérés directement dans le tableau */}
+          {/* --- Modal paiements du graphe --- */}
+          {pieModalFiltre && (() => {
+            const moisActuel = getMoisActuel();
+            const annee = new Date().getFullYear();
+            const paiementsFiltres = paiementsAffiches.filter((p) => {
+              if (p.mois !== moisActuel) return false;
+              if (pieModalFiltre === "payé") return p.statut === "payé";
+              return p.statut === "en attente" || p.statut === "impayé";
+            });
+            const titre = pieModalFiltre === "payé" ? "✅ Paiements validés" : "⏳ Paiements en attente / impayés";
+            const couleurTitre = pieModalFiltre === "payé" ? "#2e7d32" : "#e65100";
+            return (
+              <div className="modal-backdrop" style={{ zIndex: 2000 }} onClick={() => setPieModalFiltre(null)}>
+                <div className="modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <h3 style={{ margin: 0, color: couleurTitre }}>{titre} — {mois[moisActuel - 1]} {annee}</h3>
+                    <button onClick={() => setPieModalFiltre(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#888" }}>×</button>
+                  </div>
+                  {paiementsFiltres.length === 0 ? (
+                    <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0" }}>Aucun paiement dans cette catégorie.</p>
+                  ) : (
+                    <table className="table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f0f2f8" }}>
+                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Locataire</th>
+                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Logement</th>
+                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Montant</th>
+                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Statut</th>
+                          {pieModalFiltre === "payé" && <th style={{ padding: "10px 12px", textAlign: "left" }}>Date</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paiementsFiltres.map((p) => {
+                          const loc = locataires.find((l) => String(l._id) === String(p.locataireId));
+                          const nomLoc = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
+                          const statutCouleur = p.statut === "payé" ? { bg: "#e8f5e9", text: "#2e7d32" } : p.statut === "impayé" ? { bg: "#fdecea", text: "#c62828" } : { bg: "#fff8e1", text: "#e65100" };
+                          return (
+                            <tr key={p._id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                              <td style={{ padding: "10px 12px", fontWeight: 600 }}>{nomLoc}</td>
+                              <td style={{ padding: "10px 12px", color: "#555" }}>{p.logementTitre || "-"}</td>
+                              <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1a237e" }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
+                              <td style={{ padding: "10px 12px" }}>
+                                <span style={{ background: statutCouleur.bg, color: statutCouleur.text, borderRadius: 10, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>
+                                  {p.statut}
+                                </span>
+                              </td>
+                              {pieModalFiltre === "payé" && (
+                                <td style={{ padding: "10px 12px", color: "#888", fontSize: 12 }}>
+                                  {p.datePaiement ? new Date(p.datePaiement).toLocaleDateString("fr-FR") : "-"}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ background: "#f9fbe7", fontWeight: 700 }}>
+                          <td colSpan={pieModalFiltre === "payé" ? 2 : 2} style={{ padding: "10px 12px" }}>Total ({paiementsFiltres.length} paiement{paiementsFiltres.length > 1 ? "s" : ""})</td>
+                          <td style={{ padding: "10px 12px", color: "#1a237e" }}>
+                            {paiementsFiltres.reduce((s, p) => s + p.montant, 0).toLocaleString("fr-FR")} FCFA
+                          </td>
+                          <td colSpan={pieModalFiltre === "payé" ? 2 : 1}></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* --- Modal revenus mensuels --- */}
           {moisSelectionne && (
@@ -2736,10 +3088,22 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                           <span style={{ color: "#aaa", fontSize: 12 }}>Aucun encaissement</span>
                         )}
                       </td>
-                      <td style={{ padding: "12px 14px", fontWeight: 700, color: totalMois > 0 ? "#2e7d32" : "#aaa", fontSize: 15 }}>
-                        {totalMois > 0 ? `${totalMois.toLocaleString("fr-FR")} FCFA` : "—"}
+                      <td style={{ padding: "12px 14px" }}>
+                        <div style={{ fontWeight: 700, color: totalMois > 0 ? "#2e7d32" : "#aaa", fontSize: 15 }}>
+                          {totalMois > 0 ? `${totalMois.toLocaleString("fr-FR")} FCFA` : "—"}
+                        </div>
+                        {totalMois > 0 && (
+                          <>
+                            <div style={{ fontSize: 11, color: "#e65100", marginTop: 3 }}>
+                              Commission : <strong>{Math.round(totalMois * 0.1).toLocaleString("fr-FR")} FCFA</strong>
+                            </div>
+                            <div style={{ fontSize: 11, color: "#1565c0", marginTop: 2 }}>
+                              Net à verser : <strong>{Math.round(totalMois * 0.9).toLocaleString("fr-FR")} FCFA</strong>
+                            </div>
+                          </>
+                        )}
                         {impayesMois.length > 0 && (
-                          <div style={{ fontSize: 11, color: "#f44336", fontWeight: 600, marginTop: 2 }}>
+                          <div style={{ fontSize: 11, color: "#f44336", fontWeight: 600, marginTop: 3 }}>
                             {impayesMois.length} impayé{impayesMois.length > 1 ? "s" : ""}
                           </div>
                         )}
@@ -2814,9 +3178,11 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                               ));
                             })()}
                             <button
-                              onClick={async () => {
-                                setMoisClotures((prev) => prev.filter((c) => c.moisNum !== moisNum));
-                                try { await deleteRegistreApi(moisNum, annee); } catch {}
+                              onClick={() => {
+                                openPwdModal(`Désclôturer ${m} ${annee} ?`, async () => {
+                                  setMoisClotures((prev) => prev.filter((c) => c.moisNum !== moisNum));
+                                  try { await deleteRegistreApi(moisNum, annee); } catch {}
+                                });
                               }}
                               style={{ marginTop: 4, background: "none", border: "1px solid #e57373", color: "#e57373", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
                             >
@@ -2826,9 +3192,9 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                         ) : isCurrent || isPast ? (
                           <button
                             onClick={() => {
-                              if (window.confirm(`Clôturer ${m} ${annee} ? Les paiements non validés seront marqués impayés et le document sera téléchargé.`)) {
-                                handleCloturerMois(moisNum);
-                              }
+                              openPwdModal(`Clôturer ${m} ${annee} ? Les paiements non validés seront marqués impayés.`, async () => {
+                                await handleCloturerMois(moisNum);
+                              });
                             }}
                             style={{ background: "#1a237e", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 12 }}
                           >
@@ -2842,6 +3208,33 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   );
                 })}
               </tbody>
+              <tfoot>
+                {(() => {
+                  const annee = new Date().getFullYear();
+                  const totalAnnuel = paiementsAffiches
+                    .filter((p) => p.statut === "payé" && p.datePaiement && new Date(p.datePaiement).getFullYear() === annee)
+                    .reduce((s, p) => s + p.montant, 0);
+                  const commissionAnnuelle = Math.round(totalAnnuel * 0.1);
+                  const netAnnuel = totalAnnuel - commissionAnnuelle;
+                  return (
+                    <tr style={{ background: "#e8eaf6", borderTop: "2px solid #3949ab" }}>
+                      <td style={{ padding: "12px 14px", fontWeight: 800, fontSize: 13, color: "#1a237e" }}>TOTAL {annee}</td>
+                      <td style={{ padding: "12px 14px" }}></td>
+                      <td style={{ padding: "12px 14px" }}>
+                        <div style={{ fontWeight: 800, color: "#2e7d32", fontSize: 15 }}>{totalAnnuel.toLocaleString("fr-FR")} FCFA</div>
+                        <div style={{ fontSize: 11, color: "#e65100", marginTop: 3 }}>
+                          Commission : <strong>{commissionAnnuelle.toLocaleString("fr-FR")} FCFA</strong>
+                        </div>
+                        <div style={{ fontSize: 11, color: "#1565c0", marginTop: 2 }}>
+                          Net à verser : <strong>{netAnnuel.toLocaleString("fr-FR")} FCFA</strong>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 14px" }}></td>
+                      <td style={{ padding: "12px 14px" }}></td>
+                    </tr>
+                  );
+                })()}
+              </tfoot>
             </table>
           </div>
 
@@ -3209,6 +3602,172 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         </div>
       )}
 
+      {/* --- Modal fin de contrat / clôture locataire --- */}
+      {cloturModal && (
+        <div className="modal-backdrop" style={{ zIndex: 2050 }} onClick={() => setCloturModal(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <h3 style={{ margin: 0, color: "#0a2540" }}>
+                🔚 Fin de contrat — {cloturModal.locataire.nom} {cloturModal.locataire.prenom}
+              </h3>
+              <button onClick={() => setCloturModal(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#888" }}>×</button>
+            </div>
+
+            {/* ÉTAPE 1 : Renouveler ou clôturer ? */}
+            {cloturModal.step === "choix" && (
+              <div>
+                <p style={{ color: "#555", fontSize: 14, marginBottom: 20 }}>
+                  Le contrat de <strong>{cloturModal.locataire.nom} {cloturModal.locataire.prenom}</strong> se termine le <strong>{formatDate(cloturModal.locataire.dateFinLocation)}</strong>.<br />
+                  Souhaitez-vous renouveler le contrat ou le clôturer ?
+                </p>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button
+                    onClick={() => setCloturModal((p) => ({ ...p, step: "renouveler" }))}
+                    style={{ flex: 1, background: "#1a237e", color: "#fff", border: "none", padding: "12px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+                  >
+                    🔄 Renouveler le contrat
+                  </button>
+                  <button
+                    onClick={() => setCloturModal((p) => ({ ...p, step: "etatLieux" }))}
+                    style={{ flex: 1, background: "#e65100", color: "#fff", border: "none", padding: "12px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+                  >
+                    ❌ Clôturer le contrat
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ÉTAPE 2A : Renouveler — nouvelle date de fin */}
+            {cloturModal.step === "renouveler" && (
+              <div>
+                <p style={{ color: "#555", fontSize: 14, marginBottom: 16 }}>
+                  Indiquez la nouvelle date de fin de contrat :
+                </p>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Nouvelle date de fin *</label>
+                  <input
+                    type="date"
+                    value={cloturModal.nouveauFin}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setCloturModal((p) => ({ ...p, nouveauFin: e.target.value }))}
+                    style={{ width: "100%", marginTop: 6, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() => setCloturModal((p) => ({ ...p, step: "choix" }))}
+                    style={{ flex: 1, background: "#eee", color: "#333", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                  >
+                    ← Retour
+                  </button>
+                  <button
+                    disabled={!cloturModal.nouveauFin}
+                    onClick={() => {
+                      if (!cloturModal.nouveauFin) return;
+                      const l = cloturModal.locataire;
+                      const nouvelleFin = cloturModal.nouveauFin;
+                      openPwdModal(`Confirmer le renouvellement du contrat de ${l.nom} ${l.prenom}`, async () => {
+                        const formData = new FormData();
+                        formData.append("dateFinLocation", nouvelleFin);
+                        const updated = await updateLocataireById(l._id, formData);
+                        setLocataires((prev) => prev.map((x) => x._id === updated._id ? updated : x));
+                        setCloturModal(null);
+                        toast("Contrat renouvelé avec succès.", "success");
+                      });
+                    }}
+                    style={{ flex: 2, background: "#1a237e", color: "#fff", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, opacity: cloturModal.nouveauFin ? 1 : 0.5 }}
+                  >
+                    ✅ Confirmer le renouvellement
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ÉTAPE 2B : Clôturer — état des lieux de sortie */}
+            {cloturModal.step === "etatLieux" && (
+              <div>
+                <p style={{ color: "#555", fontSize: 14, marginBottom: 16 }}>
+                  Veuillez joindre l'état des lieux de sortie avant de clôturer le contrat :
+                </p>
+                <button
+                  onClick={() => { setEdlSortieLocataire(cloturModal.locataire); setShowEDLSortie(true); }}
+                  style={{ background: "#7B1FA2", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 7, fontWeight: 700, cursor: "pointer", fontSize: 13, marginBottom: 16 }}
+                >
+                  🏠 Générer l'état des lieux de sortie
+                </button>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Ou joindre un fichier signé</label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setCloturModal((p) => ({ ...p, etatDesLieuxFile: e.target.files[0] || null }))}
+                    style={{ display: "block", marginTop: 8, fontSize: 13 }}
+                  />
+                  {cloturModal.etatDesLieuxFile && (
+                    <p style={{ fontSize: 12, color: "#2e7d32", marginTop: 6 }}>✅ {cloturModal.etatDesLieuxFile.name}</p>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() => setCloturModal((p) => ({ ...p, step: "choix" }))}
+                    style={{ flex: 1, background: "#eee", color: "#333", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                  >
+                    ← Retour
+                  </button>
+                  <button
+                    disabled={cloturModal.etatDesLieuxLoading}
+                    onClick={async () => {
+                      if (cloturModal.etatDesLieuxFile) {
+                        setCloturModal((p) => ({ ...p, etatDesLieuxLoading: true }));
+                        try {
+                          const apiInst = (await import("../services/api")).default;
+                          const fd = new FormData();
+                          fd.append("etatDesLieux", cloturModal.etatDesLieuxFile);
+                          await apiInst.patch(`/locataires/${cloturModal.locataire._id}/etat-des-lieux`, fd, {
+                            headers: { "Content-Type": "multipart/form-data" },
+                          });
+                        } catch {
+                          toast("Erreur upload état des lieux.", "error");
+                          setCloturModal((p) => ({ ...p, etatDesLieuxLoading: false }));
+                          return;
+                        }
+                      }
+                      setCloturModal((p) => ({ ...p, step: "logement", etatDesLieuxLoading: false }));
+                    }}
+                    style={{ flex: 2, background: "#e65100", color: "#fff", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
+                  >
+                    {cloturModal.etatDesLieuxLoading ? "Upload…" : "Continuer →"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ÉTAPE 3 : Logement disponible ou pas ? */}
+            {cloturModal.step === "logement" && (
+              <div>
+                <p style={{ color: "#555", fontSize: 14, marginBottom: 20 }}>
+                  Voulez-vous remettre le logement <strong>{cloturModal.locataire.logementId?.titre || "concerné"}</strong> en disponible ?
+                </p>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button
+                    onClick={() => handleCloturerConfirm(true)}
+                    style={{ flex: 1, background: "#2e7d32", color: "#fff", border: "none", padding: "12px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+                  >
+                    ✅ Oui, le remettre disponible
+                  </button>
+                  <button
+                    onClick={() => handleCloturerConfirm(false)}
+                    style={{ flex: 1, background: "#555", color: "#fff", border: "none", padding: "12px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+                  >
+                    🚫 Non, le garder occupé
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* --- Modal confirmation mot de passe --- */}
       {pwdModal.open && (
         <div className="modal-backdrop" style={{ zIndex: 2100 }} onClick={closePwdModal}>
@@ -3304,7 +3863,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         </div>
       )}
 
-      {/* --- Modal État des lieux --- */}
+      {/* --- Modal État des lieux d'entrée --- */}
       {showEtatDesLieux && edlLocataire && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1200, overflowY: "auto", padding: "24px 12px" }}>
           <div style={{ width: "100%", maxWidth: 940, borderRadius: 10, overflow: "hidden" }}>
@@ -3314,6 +3873,22 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
               user={user}
               onArchive={handleArchiveEDL}
               onClose={() => setShowEtatDesLieux(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* --- Modal État des lieux de sortie --- */}
+      {showEDLSortie && edlSortieLocataire && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1200, overflowY: "auto", padding: "24px 12px" }}>
+          <div style={{ width: "100%", maxWidth: 940, borderRadius: 10, overflow: "hidden" }}>
+            <EtatDesLieux
+              locataire={edlSortieLocataire}
+              logement={edlSortieLocataire.logementId || mesAnnonces.find((a) => String(a._id) === String(edlSortieLocataire.logementId))}
+              user={user}
+              typeLieux="sortie"
+              onArchive={handleArchiveEDLSortie}
+              onClose={() => setShowEDLSortie(false)}
             />
           </div>
         </div>

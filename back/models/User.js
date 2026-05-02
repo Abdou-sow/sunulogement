@@ -10,7 +10,8 @@ const userSchema = new mongoose.Schema({
     enum: ["proprietaire", "locataire", "moderateur"],
     default: "proprietaire",
   },
-  autorise: { type: Boolean, default: true },
+  telephone: { type: String, default: null, sparse: true },
+  autorise: { type: Boolean, default: false },
   resetToken: { type: String, default: null },
   resetTokenExpiry: { type: Date, default: null },
 }, { timestamps: true });

@@ -14,29 +14,29 @@ export const createCandidature = async (req, res) => {
     }
 
     const candidature = await Candidature.create({
-      nom,
-      prenom,
-      email,
-      telephone,
-      dateDeNaissance,
-      message,
+      nom, prenom, email, telephone, dateDeNaissance, message,
       logement: req.params.logementId,
       proprietaireId: logement.proprietaireId,
     });
 
     res.status(201).json(candidature);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("createCandidature:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
 export const getCandidaturesByProprietaire = async (req, res) => {
   try {
+    if (req.params.proprietaireId !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
     const candidatures = await Candidature.find({ proprietaireId: req.params.proprietaireId })
       .populate("logement", "titre localisation prix images etat description createdAt updatedAt");
     res.status(200).json(candidatures);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("getCandidaturesByProprietaire:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -46,6 +46,10 @@ export const updateCandidature = async (req, res) => {
 
     const candidature = await Candidature.findById(req.params.id);
     if (!candidature) return res.status(404).json({ message: "Candidature introuvable" });
+
+    if (candidature.proprietaireId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
 
     if (status !== undefined) {
       const validStatuts = ["nouvelle", "en_attente", "accepter", "refuser"];
@@ -65,7 +69,8 @@ export const updateCandidature = async (req, res) => {
     await candidature.save();
     res.status(200).json({ message: "Candidature mise à jour", candidature });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("updateCandidature:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -74,13 +79,18 @@ export const validerCandidature = async (req, res) => {
     const candidature = await Candidature.findById(req.params.id);
     if (!candidature) return res.status(404).json({ message: "Candidature introuvable" });
 
+    if (candidature.proprietaireId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     candidature.status = "accepter";
     candidature.historique.push({ action: "accepter" });
     await candidature.save();
 
     res.status(200).json({ message: "Candidature validée", candidature });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("validerCandidature:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -89,13 +99,18 @@ export const refuserCandidature = async (req, res) => {
     const candidature = await Candidature.findById(req.params.id);
     if (!candidature) return res.status(404).json({ message: "Candidature introuvable" });
 
+    if (candidature.proprietaireId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     candidature.status = "refuser";
     candidature.historique.push({ action: "refuser" });
     await candidature.save();
 
     res.status(200).json({ message: "Candidature refusée", candidature });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("refuserCandidature:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -104,9 +119,14 @@ export const deleteCandidature = async (req, res) => {
     const candidature = await Candidature.findById(req.params.id);
     if (!candidature) return res.status(404).json({ message: "Candidature introuvable" });
 
+    if (candidature.proprietaireId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     await candidature.deleteOne();
     res.status(200).json({ message: "Candidature supprimée avec succès" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("deleteCandidature:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

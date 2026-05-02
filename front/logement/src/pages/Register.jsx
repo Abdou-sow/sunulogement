@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { register as registerService } from "../services/auth";
-import { useUser } from "../contexts/UserContext";
 import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import "../styles/Auth.css";
@@ -8,12 +7,12 @@ import "../styles/Auth.css";
 export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [telephone, setTelephone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useUser();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -25,9 +24,8 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      const userData = await registerService({ name, email, password });
-      login(userData);
-      navigate("/dashboard");
+      await registerService({ name, email, telephone, password });
+      navigate("/login", { state: { pendingApproval: true } });
     } catch (err) {
       toast(err?.response?.data?.message || "Erreur lors de l'inscription", "error");
     } finally {
@@ -64,6 +62,13 @@ export default function Register() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+            />
+            <input
+              className="auth-input"
+              type="tel"
+              placeholder="Numéro de téléphone"
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
             />
 
             <div className="auth-input-wrap">

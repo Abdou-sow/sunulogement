@@ -5,7 +5,8 @@ export const getAllProprietaires = async (_req, res) => {
     const proprietaires = await User.find({ role: "proprietaire" }).select("-password");
     res.status(200).json(proprietaires);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -19,7 +20,8 @@ export const autoriserProprietaire = async (req, res) => {
     await user.save();
     res.status(200).json({ message: "Propriétaire autorisé", autorise: true });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -33,6 +35,7 @@ export const refuserProprietaire = async (req, res) => {
     await user.save();
     res.status(200).json({ message: "Propriétaire refusé", autorise: false });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

@@ -19,16 +19,22 @@ export function UserProvider({ children }) {
 
   const login = (userData) => {
     setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData)); // sauvegarde
+    localStorage.setItem("user", JSON.stringify(userData));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("user"); // suppression
+    localStorage.removeItem("user");
+  };
+
+  const updateUser = (userData) => {
+    const updated = { ...user, ...userData };
+    setUser(updated);
+    localStorage.setItem("user", JSON.stringify(updated));
   };
 
   return (
-    <UserContext.Provider value={{ user, login, logout }}>
+    <UserContext.Provider value={{ user, login, logout, updateUser }}>
       {children}
     </UserContext.Provider>
   );

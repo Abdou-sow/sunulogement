@@ -21,7 +21,8 @@ export const createReservation = async (req, res) => {
 
     res.status(201).json(reservation);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -32,7 +33,8 @@ export const getReservationsByProprietaire = async (req, res) => {
     const reservations = await Reservation.find({ "proprietaire.id": proprietaireId });
     res.status(200).json(reservations);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -43,7 +45,8 @@ export const getReservationById = async (req, res) => {
 
     res.status(200).json(reservation);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -65,7 +68,8 @@ export const updateReservation = async (req, res) => {
     await reservation.save();
     res.status(200).json({ message: "Réservation mise à jour", reservation });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -81,6 +85,7 @@ export const deleteReservation = async (req, res) => {
     await reservation.deleteOne();
     res.status(200).json({ message: "Réservation supprimée avec succès" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

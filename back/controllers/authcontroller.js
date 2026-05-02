@@ -25,16 +25,23 @@ const validateRegister = ({ name, email, password }) => {
   return null;
 };
 
+const normalizeTel = (tel) => tel ? tel.replace(/\s+/g, "").trim() : null;
+
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, telephone } = req.body;
 
     const validationError = validateRegister({ name, email, password });
     if (validationError) return res.status(400).json({ message: validationError });
 
-    const userExists = await User.findOne({ email: email.toLowerCase().trim() });
-    if (userExists) {
-      return res.status(400).json({ message: "Cet email est déjà utilisé." });
+    const tel = normalizeTel(telephone);
+
+    const emailExists = await User.findOne({ email: email.toLowerCase().trim() });
+    if (emailExists) return res.status(400).json({ message: "Cet email est déjà utilisé." });
+
+    if (tel) {
+      const telExists = await User.findOne({ telephone: tel });
+      if (telExists) return res.status(400).json({ message: "Ce numéro de téléphone est déjà utilisé." });
     }
 
     const user = await User.create({
@@ -42,14 +49,16 @@ export const registerUser = async (req, res) => {
       email: email.toLowerCase().trim(),
       password,
       role,
+      telephone: tel,
     });
 
     res.status(201).json({
       token: generateToken(user._id),
-      user: { _id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { _id: user._id, name: user.name, email: user.email, role: user.role, telephone: user.telephone },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -79,10 +88,11 @@ export const loginUser = async (req, res) => {
 
     res.status(200).json({
       token: generateToken(user._id),
-      user: { _id: user._id, name: user.name, email: user.email, role: user.role, autorise: user.autorise },
+      user: { _id: user._id, name: user.name, email: user.email, role: user.role, telephone: user.telephone, autorise: user.autorise },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -97,7 +107,8 @@ export const forgotPassword = async (req, res) => {
     if (!user) return res.status(200).json({ message: successMsg });
 
     const token = crypto.randomBytes(32).toString("hex");
-    user.resetToken = token;
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    user.resetToken = hashedToken;
     user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1h
     await user.save();
 
@@ -131,7 +142,8 @@ export const forgotPassword = async (req, res) => {
 
     res.status(200).json({ message: successMsg });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -140,8 +152,9 @@ export const resetPassword = async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
 
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
     const user = await User.findOne({
-      resetToken: token,
+      resetToken: hashedToken,
       resetTokenExpiry: { $gt: new Date() },
     });
 
@@ -156,7 +169,47 @@ export const resetPassword = async (req, res) => {
 
     res.status(200).json({ message: "Mot de passe réinitialisé avec succès." });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email, telephone, currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "Utilisateur introuvable" });
+
+    if (name && name.trim().length >= 2) user.name = name.trim();
+
+    if (email && email.toLowerCase().trim() !== user.email) {
+      const exists = await User.findOne({ email: email.toLowerCase().trim() });
+      if (exists) return res.status(400).json({ message: "Cet email est déjà utilisé par un autre compte." });
+      user.email = email.toLowerCase().trim();
+    }
+
+    const tel = normalizeTel(telephone);
+    if (tel !== undefined) {
+      if (tel && tel !== user.telephone) {
+        const telExists = await User.findOne({ telephone: tel, _id: { $ne: user._id } });
+        if (telExists) return res.status(400).json({ message: "Ce numéro de téléphone est déjà utilisé par un autre compte." });
+      }
+      user.telephone = tel || null;
+    }
+
+    if (newPassword) {
+      if (!currentPassword) return res.status(400).json({ message: "Mot de passe actuel requis." });
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) return res.status(401).json({ message: "Mot de passe actuel incorrect." });
+      if (newPassword.length < 6) return res.status(400).json({ message: "Le nouveau mot de passe doit contenir au moins 6 caractères." });
+      user.password = newPassword;
+    }
+
+    await user.save();
+    res.status(200).json({ user: { _id: user._id, name: user.name, email: user.email, role: user.role, telephone: user.telephone } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -169,6 +222,7 @@ export const verifyPassword = async (req, res) => {
     if (!valid) return res.status(401).json({ message: "Mot de passe incorrect" });
     res.status(200).json({ valid: true });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

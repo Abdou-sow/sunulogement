@@ -83,6 +83,11 @@ export const updateLocataireById = async (id, locataireData) => {
   return res.data;
 };
 
+export const deleteLocataireById = async (id, rendreDisponible = false) => {
+  const res = await api.delete(`/locataires/${id}`, { data: { rendreDisponible } });
+  return res.data;
+};
+
 export const validerPaiement = async (PayementId) => {
   const res = await api.patch(`/locataires/paiement/${PayementId}`);
   return res.data;

@@ -32,6 +32,8 @@ const locataireSchema = new mongoose.Schema({
   etatDesLieux: String,
   contratBail: String,
   paiements: [paiementSchema],
+  etatDesLieuxSortie: String,
+  archivé: { type: Boolean, default: false },
   autorise: { type: Boolean, default: false },
 }, { timestamps: true });
 

@@ -3,16 +3,22 @@ import Logement from "../models/Logement.js";
 import Candidature from "../models/Candidature.js";
 import Reservation from "../models/Reservation.js";
 
+const ownsLocataire = (locataire, userId) =>
+  locataire.proprietaireId.toString() === userId.toString();
+
 export const createLocataire = async (req, res) => {
   try {
     const {
       nom, prenom, email, telephone,
-      logementId, proprietaireId,
-      dateDebutLocation, dateFinLocation,
+      logementId, dateDebutLocation, dateFinLocation,
     } = req.body;
 
     const logement = await Logement.findById(logementId);
     if (!logement) return res.status(404).json({ message: "Logement introuvable" });
+
+    if (logement.proprietaireId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
 
     const dejaOccupe = await Locataire.findOne({ logementId });
     if (dejaOccupe) {
@@ -20,19 +26,14 @@ export const createLocataire = async (req, res) => {
     }
 
     const files = req.files || {};
-    const pieceIdentite = files.pieceIdentite?.[0]
-      ? files.pieceIdentite[0].path
-      : undefined;
-    const etatDesLieux = files.etatDesLieux?.[0]
-      ? files.etatDesLieux[0].path
-      : undefined;
-    const contratBail = files.contratBail?.[0]
-      ? files.contratBail[0].path
-      : undefined;
+    const pieceIdentite = files.pieceIdentite?.[0]?.path;
+    const etatDesLieux = files.etatDesLieux?.[0]?.path;
+    const contratBail = files.contratBail?.[0]?.path;
 
     const locataire = await Locataire.create({
       nom, prenom, email, telephone,
-      logementId, proprietaireId,
+      logementId,
+      proprietaireId: req.user._id,
       dateDebutLocation, dateFinLocation,
       pieceIdentite, etatDesLieux, contratBail,
     });
@@ -40,24 +41,28 @@ export const createLocataire = async (req, res) => {
     logement.etat = "indisponible";
     await logement.save();
 
-    // Supprimer toutes les candidatures et réservations liées à ce logement
     await Candidature.deleteMany({ logement: logementId });
     await Reservation.deleteMany({ "logement._id": logementId });
 
     await locataire.populate("logementId", "titre localisation prix description");
     res.status(201).json(locataire);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("createLocataire:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
 export const getLocatairesByProprietaire = async (req, res) => {
   try {
-    const locataires = await Locataire.find({ proprietaireId: req.params.proprietaireId })
+    if (req.params.proprietaireId !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+    const locataires = await Locataire.find({ proprietaireId: req.params.proprietaireId, archivé: { $ne: true } })
       .populate("logementId", "titre localisation prix description");
     res.status(200).json(locataires);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("getLocatairesByProprietaire:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -66,16 +71,23 @@ export const updateLocataire = async (req, res) => {
     const locataire = await Locataire.findById(req.params.id);
     if (!locataire) return res.status(404).json({ message: "Locataire introuvable" });
 
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     const {
       nom, prenom, email, telephone,
       logementId, dateDebutLocation, dateFinLocation,
     } = req.body;
     const files = req.files || {};
 
-    // Si changement de logement, valider et mettre à jour les états
     if (logementId && logementId !== locataire.logementId?.toString()) {
       const nouveauLogement = await Logement.findById(logementId);
       if (!nouveauLogement) return res.status(404).json({ message: "Nouveau logement introuvable" });
+
+      if (nouveauLogement.proprietaireId.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "Accès refusé sur ce logement" });
+      }
 
       const autreLocataire = await Locataire.findOne({ logementId, _id: { $ne: locataire._id } });
       if (autreLocataire) {
@@ -108,7 +120,8 @@ export const updateLocataire = async (req, res) => {
     await locataire.populate("logementId", "titre localisation prix description");
     res.status(200).json(locataire);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("updateLocataire:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -118,6 +131,14 @@ export const addPaiement = async (req, res) => {
 
     const locataire = await Locataire.findById(req.params.locataireId);
     if (!locataire) return res.status(404).json({ message: "Locataire introuvable" });
+
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
+    if (typeof montant !== "number" || montant < 0) {
+      return res.status(400).json({ message: "Montant invalide" });
+    }
 
     locataire.paiements.push({ mois, annee, montant, statut });
     await locataire.save();
@@ -131,7 +152,8 @@ export const addPaiement = async (req, res) => {
       statut: newPaiement.statut,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("addPaiement:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -141,6 +163,10 @@ export const marquerPaiementPaye = async (req, res) => {
 
     const locataire = await Locataire.findOne({ "paiements._id": paiementId });
     if (!locataire) return res.status(404).json({ message: "Paiement introuvable" });
+
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
 
     const paiement = locataire.paiements.id(paiementId);
     paiement.statut = "payé";
@@ -159,24 +185,33 @@ export const marquerPaiementPaye = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("marquerPaiementPaye:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
 export const marquerPaiementImpaye = async (req, res) => {
   try {
     const { paiementId } = req.params;
+
     const locataire = await Locataire.findOne({ "paiements._id": paiementId });
     if (!locataire) return res.status(404).json({ message: "Paiement introuvable" });
+
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     const paiement = locataire.paiements.id(paiementId);
     paiement.statut = "impayé";
     await locataire.save();
+
     res.status(200).json({
       message: "Paiement marqué comme impayé",
       paiement: { _id: paiement._id, statut: paiement.statut, mois: paiement.mois, annee: paiement.annee, montant: paiement.montant },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("marquerPaiementImpaye:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -202,7 +237,6 @@ export const autoMarkUnpaid = async (req, res) => {
         const moisNum = current.getMonth() + 1;
         const annee = current.getFullYear();
 
-        // Seulement les mois entièrement passés (avant le mois actuel)
         const hasPassed = annee < currentYear || (annee === currentYear && moisNum < currentMonth);
         if (!hasPassed) break;
 
@@ -231,7 +265,8 @@ export const autoMarkUnpaid = async (req, res) => {
 
     res.json({ message: "ok" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("autoMarkUnpaid:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -239,6 +274,11 @@ export const updateEtatDesLieux = async (req, res) => {
   try {
     const locataire = await Locataire.findById(req.params.id);
     if (!locataire) return res.status(404).json({ message: "Locataire introuvable" });
+
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     if (!req.file) return res.status(400).json({ message: "Fichier manquant" });
 
     locataire.etatDesLieux = req.file.path;
@@ -249,19 +289,74 @@ export const updateEtatDesLieux = async (req, res) => {
       etatDesLieux: locataire.etatDesLieux,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("updateEtatDesLieux:", error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const deleteLocataire = async (req, res) => {
+  try {
+    const locataire = await Locataire.findById(req.params.id);
+    if (!locataire) return res.status(404).json({ message: "Locataire introuvable" });
+
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
+    const { rendreDisponible } = req.body;
+    if (rendreDisponible && locataire.logementId) {
+      await Logement.findByIdAndUpdate(locataire.logementId, { etat: "disponible" });
+    }
+
+    // Archiver au lieu de supprimer pour conserver l'historique des paiements
+    locataire.archivé = true;
+    locataire.logementId = null;
+    await locataire.save();
+
+    res.status(200).json({ message: "Locataire archivé" });
+  } catch (error) {
+    console.error("deleteLocataire:", error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const updateEtatDesLieuxSortie = async (req, res) => {
+  try {
+    const locataire = await Locataire.findById(req.params.id);
+    if (!locataire) return res.status(404).json({ message: "Locataire introuvable" });
+
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
+    if (!req.file) return res.status(400).json({ message: "Fichier manquant" });
+
+    locataire.etatDesLieuxSortie = req.file.path;
+    await locataire.save();
+
+    res.status(200).json({ message: "État des lieux de sortie mis à jour", etatDesLieuxSortie: locataire.etatDesLieuxSortie });
+  } catch (error) {
+    console.error("updateEtatDesLieuxSortie:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
 export const deletePaiement = async (req, res) => {
   try {
     const { paiementId } = req.params;
+
     const locataire = await Locataire.findOne({ "paiements._id": paiementId });
     if (!locataire) return res.status(404).json({ message: "Paiement introuvable" });
+
+    if (!ownsLocataire(locataire, req.user._id)) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     locataire.paiements.id(paiementId).deleteOne();
     await locataire.save();
     res.status(200).json({ message: "Paiement supprimé" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("deletePaiement:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { login as loginService } from "../services/auth";
 import { useUser } from "../contexts/UserContext";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import "../styles/Auth.css";
 
@@ -13,7 +13,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
+  const pendingApproval = location.state?.pendingApproval || false;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,6 +50,13 @@ export default function Login() {
 
         <div className="auth-right">
           <h2 className="auth-title">Connexion</h2>
+
+          {pendingApproval && (
+            <div className="auth-alert auth-alert-success">
+              <strong>✅ Inscription réussie !</strong>
+              <p>Votre compte a été créé. Connectez-vous une fois que le modérateur l'aura autorisé.</p>
+            </div>
+          )}
 
           {blocked && (
             <div className="auth-alert auth-alert-warn">

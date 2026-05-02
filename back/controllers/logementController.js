@@ -5,7 +5,8 @@ export const getAllLogements = async (_req, res) => {
     const logements = await Logement.find();
     res.status(200).json(logements);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -15,7 +16,8 @@ export const getLogementById = async (req, res) => {
     if (!logement) return res.status(404).json({ message: "Logement introuvable" });
     res.status(200).json(logement);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -25,7 +27,8 @@ export const getLogementsByProprietaire = async (req, res) => {
       .populate("clientId", "nom prenom email telephone");
     res.status(200).json(logements);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -49,7 +52,8 @@ export const createLogement = async (req, res) => {
 
     res.status(201).json(logement);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -87,7 +91,8 @@ export const updateLogement = async (req, res) => {
     await logement.save();
     res.status(200).json(logement);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -103,6 +108,7 @@ export const deleteLogement = async (req, res) => {
     await logement.deleteOne();
     res.status(200).json({ message: "Logement supprimé" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

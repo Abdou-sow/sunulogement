@@ -2,7 +2,11 @@ import api from "./api";
 
 export const register = async (userData) => {
   const res = await api.post("/auth/register", userData);
-  if (res.data.token) localStorage.setItem("token", res.data.token);
+  return res.data.user;
+};
+
+export const updateProfile = async (data) => {
+  const res = await api.put("/auth/update-profile", data);
   return res.data.user;
 };
 

@@ -6,7 +6,8 @@ export const getClients = async (req, res) => {
     const clients = await Client.find({ proprietaireId: req.user._id });
     res.status(200).json(clients);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -19,7 +20,8 @@ export const createClient = async (req, res) => {
     });
     res.status(201).json(client);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -37,7 +39,8 @@ export const updateClient = async (req, res) => {
     await client.save();
     res.status(200).json(client);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -49,7 +52,8 @@ export const deleteClient = async (req, res) => {
     await client.deleteOne();
     res.status(200).json({ message: "Client supprimé" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -57,12 +61,18 @@ export const uploadClientDocument = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id);
     if (!client) return res.status(404).json({ message: "Client introuvable" });
+
+    if (client.proprietaireId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     if (!req.file) return res.status(400).json({ message: "Fichier manquant" });
     client.documents.push({ nom: req.file.originalname, url: req.file.path });
     await client.save();
     res.status(201).json(client.documents[client.documents.length - 1]);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("uploadClientDocument:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -70,10 +80,16 @@ export const deleteClientDocument = async (req, res) => {
   try {
     const client = await Client.findById(req.params.id);
     if (!client) return res.status(404).json({ message: "Client introuvable" });
+
+    if (client.proprietaireId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
     client.documents.id(req.params.docId).deleteOne();
     await client.save();
     res.status(200).json({ message: "Document supprimé" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("deleteClientDocument:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
