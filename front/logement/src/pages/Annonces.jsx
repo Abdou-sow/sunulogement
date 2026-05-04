@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAnnonces } from '../contexts/AnnoncesContext';
-import { API_URL } from '../services/api';
+import { getImageUrl } from '../services/api';
 
 function Annonces() {
   const { annonces } = useAnnonces();
@@ -24,13 +24,13 @@ function Annonces() {
               }}
             >
               <img
-                src={images?.[0] ? `${API_URL}${images[0]}` : 'https://via.placeholder.com/300x200'}
+                src={images?.[0] ? getImageUrl(images[0]) : '/placeholder-400.png'}
                 alt={titre}
                 style={{ width: '100%', height: '200px', objectFit: 'cover' }}
               />
               <div style={{ padding: '1rem' }}>
                 <h3>{titre}</h3>
-                <p><strong>{prix} &euro; / mois</strong></p>
+                <p><strong>{Number(prix).toLocaleString("fr-FR")} FCFA / mois</strong></p>
                 <p>{localisation}</p>
                 <Link
                   to={`/annonces/${_id}`}

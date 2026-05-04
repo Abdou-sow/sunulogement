@@ -12,6 +12,8 @@ import DashboardModérateur from "./pages/DashboardModérateur";
 import LoginModérateur from "./pages/LoginModérateur";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ConditionsUtilisation from "./pages/ConditionsUtilisation";
+import PolitiqueConfidentialite from "./pages/PolitiqueConfidentialite";
 import { useUser } from "./contexts/UserContext";
 import Footer from "./components/Footer";
 import "./styles/Footer.css";
@@ -42,6 +44,8 @@ export default function App() {
         <Route path="/annonces" element={<Annonces />} />
         <Route path="/annonces/:id" element={<AnnonceDetail />} />
         <Route path="/login-mod" element={<LoginModérateur />} />
+        <Route path="/conditions-utilisation" element={<ConditionsUtilisation />} />
+        <Route path="/politique-confidentialite" element={<PolitiqueConfidentialite />} />
 
         <Route
           path="/dashboard-mod"

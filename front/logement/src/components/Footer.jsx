@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function Footer() {
     return (
         <footer className="footer">
@@ -24,8 +26,8 @@ export default function Footer() {
                     <ul>
                         <li><button type="button" className="footer-link-btn">FAQ</button></li>
                         <li><button type="button" className="footer-link-btn">Contact</button></li>
-                        <li><button type="button" className="footer-link-btn">Conditions d'utilisation</button></li>
-                        <li><button type="button" className="footer-link-btn">Politique de confidentialité</button></li>
+                        <li><Link to="/conditions-utilisation" className="footer-link-btn">Conditions d'utilisation</Link></li>
+                        <li><Link to="/politique-confidentialite" className="footer-link-btn">Politique de confidentialité</Link></li>
                     </ul>
                 </div>
 
@@ -33,10 +35,10 @@ export default function Footer() {
                 <div className="footer-col">
                     <h4>Nous contacter</h4>
                     <p className="footer-contact">
-                        <strong>Téléphone :</strong> <a href="tel:+221771234567">+221 77 123 45 67</a>
+                        <strong>Téléphone :</strong> <a href="tel:+33627197015">+33 6 27 19 70 15</a>
                     </p>
                     <p className="footer-contact">
-                        <strong>Email :</strong> <a href="mailto:contact@sunulogement.sn">contact@sunulogement.sn</a>
+                        <strong>Email :</strong> <a href="mailto:contact.sunulogement@gmail.com">contact.sunulogement@gmail.com</a>
                     </p>
 
                     {/* Réseaux sociaux */}

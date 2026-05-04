@@ -36,8 +36,8 @@ export const updateLogementById = async (id, logementData) => {
 };
 
 // Créer une candidature 
-export const createCandidature = async (id, candidaturetData) => {
-  const res = await api.post(`/candidatures/${id}`, candidaturetData);
+export const createCandidature = async (id, candidatureData) => {
+  const res = await api.post(`/candidatures/${id}`, candidatureData);
   return res.data;
 };
 
@@ -88,8 +88,8 @@ export const deleteLocataireById = async (id, rendreDisponible = false) => {
   return res.data;
 };
 
-export const validerPaiement = async (PayementId) => {
-  const res = await api.patch(`/locataires/paiement/${PayementId}`);
+export const validerPaiement = async (paiementId) => {
+  const res = await api.patch(`/locataires/paiement/${paiementId}`);
   return res.data;
 };
 

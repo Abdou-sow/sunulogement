@@ -23,6 +23,9 @@ export const getLogementById = async (req, res) => {
 
 export const getLogementsByProprietaire = async (req, res) => {
   try {
+    if (req.params.id !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
     const logements = await Logement.find({ proprietaireId: req.params.id })
       .populate("clientId", "nom prenom email telephone");
     res.status(200).json(logements);

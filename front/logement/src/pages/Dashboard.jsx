@@ -159,6 +159,10 @@ function Dashboard() {
   const [clientForm, setClientForm] = useState({ nom: "", prenom: "", email: "", telephone: "", adresse: "", notes: "" });
   const [locClientId, setLocClientId] = useState(""); // client sélectionné lors de l'ajout d'un logement
 
+  // --- Taux de commission ---
+  const [commissionRate, setCommissionRate] = useState(() => Number(localStorage.getItem("commissionRate") ?? 10));
+  const [commissionDraft, setCommissionDraft] = useState(() => Number(localStorage.getItem("commissionRate") ?? 10));
+
   // --- Modal confirmation mot de passe ---
   const [pwdModal, setPwdModal] = useState({ open: false, loading: false, error: "", value: "", onConfirm: null, title: "" });
 
@@ -1332,13 +1336,13 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         lignes.push(` ${String(i + 1).padStart(2)} | ${nom.substring(0, 23).padEnd(23)} | NON PAYÉ      | ${Number(p.montant).toLocaleString("fr-FR")} FCFA`);
       });
     }
-    const commission = Math.round(totalRecouvre * 0.1);
+    const commission = Math.round(totalRecouvre * commissionRate / 100);
     const netAVerser = totalRecouvre - commission;
     lignes.push(
       `----------------------------------------------------`,
       ``,
       ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} FCFA`,
-      ` Commission (10%): ${commission.toLocaleString("fr-FR")} FCFA`,
+      ` Commission (${commissionRate}%): ${commission.toLocaleString("fr-FR")} FCFA`,
       ` NET À VERSER    : ${netAVerser.toLocaleString("fr-FR")} FCFA`,
       ``,
       ` Encaissements   : ${payesList.length + arrieresList.length}`,
@@ -1413,13 +1417,13 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
       });
     }
 
-    const commission = Math.round(totalRecouvre * 0.1);
+    const commission = Math.round(totalRecouvre * commissionRate / 100);
     const netAVerser = totalRecouvre - commission;
     lignes.push(
       `----------------------------------------------------`,
       ``,
       ` TOTAL RECOUVRÉ  : ${totalRecouvre.toLocaleString("fr-FR")} FCFA`,
-      ` Commission (10%): ${commission.toLocaleString("fr-FR")} FCFA`,
+      ` Commission (${commissionRate}%): ${commission.toLocaleString("fr-FR")} FCFA`,
       ` NET À VERSER    : ${netAVerser.toLocaleString("fr-FR")} FCFA`,
       ``,
       ` Encaissements   : ${payesList.length + arrieresList.length}`,
@@ -1463,9 +1467,10 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     { id: "accueil",      icon: "🏠", label: "Tableau de bord" },
     { id: "logements",   icon: "🏢", label: "Mes logements" },
     { id: "locataires",  icon: "👥", label: "Mes locataires" },
-    { id: "finances",    icon: "💰", label: "Revenus & Finances" },
+    { id: "finances",    icon: "💰", label: "Recouvrement" },
     { id: "clients",     icon: "🤝", label: "Mes clients", badge: clients.length || null },
     { id: "reservations",icon: "📅", label: "Réservations", badge: candidatures.length || null },
+    { id: "caution",     icon: "🔒", label: "Caution" },
     { id: "reglages",    icon: "⚙️", label: "Réglages" },
   ];
 
@@ -1473,9 +1478,10 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
     accueil:      "Tableau de bord",
     logements:    "Mes logements",
     locataires:   "Mes locataires",
-    finances:     "Revenus & Finances",
+    finances:     "Recouvrement",
     clients:      "Mes clients (bailleurs)",
     reservations: "Réservations & Candidatures",
+    caution:      "Caution",
     reglages:     "Réglages",
   };
 
@@ -1584,7 +1590,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     new Date(p.datePaiement).getFullYear() === nowYear
                   )
                   .reduce((sum, p) => sum + p.montant, 0);
-                const commission = Math.round(revenuMois * 0.1);
+                const commission = Math.round(revenuMois * commissionRate / 100);
                 const netAVerser = revenuMois - commission;
                 return (
                   <div onClick={() => setActivePage("finances")} style={{ background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", color: "#fff", borderRadius: 12, padding: "20px 28px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(26,35,126,0.25)", cursor: "pointer" }}>
@@ -1593,7 +1599,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                       <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} FCFA</div>
                       <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
                         <div style={{ fontSize: 12, opacity: 0.85 }}>
-                          Commission (10%) : <strong>{commission.toLocaleString("fr-FR")} FCFA</strong>
+                          Commission ({commissionRate}%) : <strong>{commission.toLocaleString("fr-FR")} FCFA</strong>
                         </div>
                         <div style={{ fontSize: 12, opacity: 0.85 }}>
                           Net à verser : <strong>{netAVerser.toLocaleString("fr-FR")} FCFA</strong>
@@ -2346,6 +2352,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   <p><strong>Titre:</strong> {selectedLocataireDossier.logementId?.titre || "-"}</p>
                   <p><strong>Localisation:</strong> {selectedLocataireDossier.logementId?.localisation || "-"}</p>
                   <p><strong>Prix:</strong> {selectedLocataireDossier.logementId?.prix ? Number(selectedLocataireDossier.logementId.prix).toLocaleString("fr-FR") + " FCFA" : "-"}</p>
+                  <p><strong>Caution:</strong> <span style={{ fontWeight: 700, color: "#1a237e" }}>{selectedLocataireDossier.logementId?.prix ? Number(selectedLocataireDossier.logementId.prix).toLocaleString("fr-FR") + " FCFA" : "-"}</span></p>
                   <p><strong>Description:</strong> {selectedLocataireDossier.logementId?.description || "-"}</p>
                 </div>
               </div>
@@ -2523,9 +2530,117 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
           </div>
         )}
 
+          {/* ===== PAGE : CAUTION ===== */}
+          {activePage === "caution" && (() => {
+            const locataireAvecLogement = locataires.filter((l) => l.logementId);
+            const total = locataireAvecLogement.reduce((sum, l) => sum + (l.logementId?.prix || 0), 0);
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                  <h3 style={{ margin: "0 0 4px", color: "#0a2540" }}>🔒 Cautions des locataires</h3>
+                  <p style={{ color: "#888", fontSize: 13, marginBottom: 20 }}>
+                    La caution est égale à un mois de loyer. Elle est automatiquement ajoutée à l'arrivée d'un locataire et supprimée à la clôture du contrat.
+                  </p>
+
+                  {locataireAvecLogement.length === 0 ? (
+                    <p style={{ color: "#999" }}>Aucun locataire actif.</p>
+                  ) : (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                      <thead>
+                        <tr style={{ background: "#1a237e", color: "#fff" }}>
+                          <th style={{ padding: "12px 14px", textAlign: "left", fontWeight: 600 }}>Locataire</th>
+                          <th style={{ padding: "12px 14px", textAlign: "left", fontWeight: 600 }}>Logement</th>
+                          <th style={{ padding: "12px 14px", textAlign: "left", fontWeight: 600 }}>Propriétaire</th>
+                          <th style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600 }}>Montant caution</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {locataireAvecLogement.map((l, i) => {
+                          const logement = mesAnnonces.find((a) => String(a._id) === String(l.logementId?._id));
+                          const client = logement?.clientId;
+                          const proprietaireNom = client
+                            ? `${client.nom || ""} ${client.prenom || ""}`.trim()
+                            : user?.name || "-";
+                          return (
+                            <tr key={l._id} style={{ background: i % 2 === 0 ? "#fff" : "#f8f9ff", borderBottom: "1px solid #f0f2f8" }}>
+                              <td style={{ padding: "11px 14px", fontWeight: 500 }}>{l.nom} {l.prenom}</td>
+                              <td style={{ padding: "11px 14px", color: "#555" }}>{l.logementId?.titre || "-"}</td>
+                              <td style={{ padding: "11px 14px", color: "#555" }}>{proprietaireNom}</td>
+                              <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 700, color: "#1a237e" }}>
+                                {Number(l.logementId?.prix || 0).toLocaleString("fr-FR")} FCFA
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {locataireAvecLogement.length > 0 && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+                      <div style={{ background: "#1a237e", color: "#fff", borderRadius: 8, padding: "12px 24px", fontSize: 15, fontWeight: 700 }}>
+                        Total cautions : {Number(total).toLocaleString("fr-FR")} FCFA
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ===== PAGE : RÉGLAGES ===== */}
           {activePage === "reglages" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+              {/* --- Taux de commission --- */}
+              <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <h3 style={{ margin: "0 0 6px", color: "#0a2540", borderBottom: "1px solid #f0f2f8", paddingBottom: 10 }}>
+                  💼 Taux de commission
+                </h3>
+                <p style={{ color: "#888", fontSize: 13, margin: "0 0 18px" }}>
+                  Taux actuel : <strong style={{ color: "#1a237e" }}>{commissionRate}%</strong> — appliqué sur tous les recouvrements.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+                  {[0,1,2,3,4,5,6,7,8,9,10].map((v) => (
+                    <label key={v} style={{
+                      display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                      background: commissionDraft === v ? "#1a237e" : "#f0f2f8",
+                      color: commissionDraft === v ? "#fff" : "#333",
+                      borderRadius: 20, padding: "7px 16px", fontWeight: commissionDraft === v ? 700 : 400,
+                      fontSize: 14, transition: "all 0.15s",
+                    }}>
+                      <input
+                        type="radio"
+                        name="commissionRate"
+                        value={v}
+                        checked={commissionDraft === v}
+                        onChange={() => setCommissionDraft(v)}
+                        style={{ display: "none" }}
+                      />
+                      {v}%
+                    </label>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    if (commissionDraft === commissionRate) return;
+                    openPwdModal(`Changer le taux de commission à ${commissionDraft}% ?`, async () => {
+                      setCommissionRate(commissionDraft);
+                      localStorage.setItem("commissionRate", String(commissionDraft));
+                      toast(`Taux de commission mis à jour : ${commissionDraft}%`, "success");
+                    });
+                  }}
+                  disabled={commissionDraft === commissionRate}
+                  style={{
+                    background: commissionDraft === commissionRate ? "#ccc" : "#1a237e",
+                    color: "#fff", border: "none", padding: "9px 22px",
+                    borderRadius: 6, fontWeight: 700, fontSize: 14,
+                    cursor: commissionDraft === commissionRate ? "default" : "pointer",
+                  }}
+                >
+                  Enregistrer
+                </button>
+              </div>
 
               {/* --- Informations personnelles --- */}
               <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
@@ -2797,7 +2912,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 new Date(p.datePaiement).getFullYear() === nowYear
               )
               .reduce((sum, p) => sum + p.montant, 0);
-            const commissionMois = Math.round(revenuMois * 0.1);
+            const commissionMois = Math.round(revenuMois * commissionRate / 100);
             const netMois = revenuMois - commissionMois;
             return (
               <div style={{ background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", color: "#fff", borderRadius: 12, padding: "20px 28px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(26,35,126,0.25)" }}>
@@ -2808,7 +2923,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   <div style={{ fontSize: 36, fontWeight: 800 }}>{revenuMois.toLocaleString("fr-FR")} FCFA</div>
                   <div style={{ display: "flex", gap: 24, marginTop: 10 }}>
                     <div style={{ fontSize: 13, opacity: 0.9 }}>
-                      Commission (10%) : <strong>{commissionMois.toLocaleString("fr-FR")} FCFA</strong>
+                      Commission ({commissionRate}%) : <strong>{commissionMois.toLocaleString("fr-FR")} FCFA</strong>
                     </div>
                     <div style={{ fontSize: 13, opacity: 0.9 }}>
                       Net à verser : <strong>{netMois.toLocaleString("fr-FR")} FCFA</strong>
@@ -2823,7 +2938,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
           <div style={{ display: "flex", gap: 20 }}>
             {/* BarChart revenu annuel */}
             <div style={{ flex: 1 }}>
-              <h4>Revenu annuel</h4>
+              <h4>Recouvrement annuel</h4>
               <BarChart width={500} height={350} data={dataGraph}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="mois" />
@@ -3095,7 +3210,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                         {totalMois > 0 && (
                           <>
                             <div style={{ fontSize: 11, color: "#e65100", marginTop: 3 }}>
-                              Commission : <strong>{Math.round(totalMois * 0.1).toLocaleString("fr-FR")} FCFA</strong>
+                              Commission : <strong>{Math.round(totalMois * commissionRate / 100).toLocaleString("fr-FR")} FCFA</strong>
                             </div>
                             <div style={{ fontSize: 11, color: "#1565c0", marginTop: 2 }}>
                               Net à verser : <strong>{Math.round(totalMois * 0.9).toLocaleString("fr-FR")} FCFA</strong>
@@ -3214,7 +3329,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   const totalAnnuel = paiementsAffiches
                     .filter((p) => p.statut === "payé" && p.datePaiement && new Date(p.datePaiement).getFullYear() === annee)
                     .reduce((s, p) => s + p.montant, 0);
-                  const commissionAnnuelle = Math.round(totalAnnuel * 0.1);
+                  const commissionAnnuelle = Math.round(totalAnnuel * commissionRate / 100);
                   const netAnnuel = totalAnnuel - commissionAnnuelle;
                   return (
                     <tr style={{ background: "#e8eaf6", borderTop: "2px solid #3949ab" }}>
