@@ -159,6 +159,9 @@ function Dashboard() {
   const [clientForm, setClientForm] = useState({ nom: "", prenom: "", email: "", telephone: "", adresse: "", notes: "" });
   const [locClientId, setLocClientId] = useState(""); // client sélectionné lors de l'ajout d'un logement
 
+  // --- Filtre caution ---
+  const [filtreCaution, setFiltreCaution] = useState("all");
+
   // --- Taux de commission ---
   const [commissionRate, setCommissionRate] = useState(() => Number(localStorage.getItem("commissionRate") ?? 10));
   const [commissionDraft, setCommissionDraft] = useState(() => Number(localStorage.getItem("commissionRate") ?? 10));
@@ -1560,9 +1563,9 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
             <div>
               <div className="dash-stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
                 {[
-                  { label: "Logements total", value: mesAnnonces.length, color: "#1a237e", icon: "🏢", page: "logements" },
-                  { label: "Occupés", value: mesAnnonces.filter((a) => a.etat === "indisponible").length, color: "#c62828", icon: "🔴", page: "logements" },
-                  { label: "Disponibles", value: mesAnnonces.filter((a) => a.etat === "disponible").length, color: "#2e7d32", icon: "🟢", page: "logements" },
+                  { label: "Logements total", value: annoncesAffichees.length, color: "#1a237e", icon: "🏢", page: "logements" },
+                  { label: "Occupés", value: annoncesAffichees.filter((a) => a.etat === "indisponible").length, color: "#c62828", icon: "🔴", page: "logements" },
+                  { label: "Disponibles", value: annoncesAffichees.filter((a) => a.etat === "disponible").length, color: "#2e7d32", icon: "🟢", page: "logements" },
                   { label: "Locataires", value: locataires.length, color: "#6a1b9a", icon: "👥", page: "locataires" },
                   { label: "Clients bailleurs", value: clients.length, color: "#e65100", icon: "🤝", page: "clients" },
                   { label: "Candidatures", value: candidatures.length, color: "#00695c", icon: "📝", page: "reservations" },
@@ -1727,9 +1730,9 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         {/* Statistiques logements */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20, marginTop: 12 }}>
           {[
-            { label: "Total logements", value: mesAnnonces.length, color: "#1a237e" },
-            { label: "Occupés", value: mesAnnonces.filter((a) => a.etat === "indisponible").length, color: "#c62828" },
-            { label: "Disponibles", value: mesAnnonces.filter((a) => a.etat === "disponible").length, color: "#2e7d32" },
+            { label: "Total logements", value: annoncesAffichees.length, color: "#1a237e" },
+            { label: "Occupés", value: annoncesAffichees.filter((a) => a.etat === "indisponible").length, color: "#c62828" },
+            { label: "Disponibles", value: annoncesAffichees.filter((a) => a.etat === "disponible").length, color: "#2e7d32" },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ background: "#fff", borderRadius: 8, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", textAlign: "center", borderTop: `4px solid ${color}` }}>
               <div style={{ fontSize: 30, fontWeight: 800, color }}>{value}</div>
@@ -2533,16 +2536,45 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
           {/* ===== PAGE : CAUTION ===== */}
           {activePage === "caution" && (() => {
             const locataireAvecLogement = locataires.filter((l) => l.logementId);
-            const total = locataireAvecLogement.reduce((sum, l) => sum + (l.logementId?.prix || 0), 0);
+
+            const cautionClients = [
+              { id: "all", label: "🌐 Tous" },
+              { id: "mine", label: "🏠 Mes logements" },
+              ...clients.map((c) => ({ id: String(c._id), label: `👤 ${c.nom} ${c.prenom || ""}`.trim() })),
+            ];
+
+            const locatairesFiltres = locataireAvecLogement.filter((l) => {
+              if (filtreCaution === "all") return true;
+              const logement = mesAnnonces.find((a) => String(a._id) === String(l.logementId?._id));
+              if (filtreCaution === "mine") return !logement?.clientId;
+              return String(logement?.clientId?._id || logement?.clientId) === filtreCaution;
+            });
+            const total = locatairesFiltres.reduce((sum, l) => sum + (l.logementId?.prix || 0), 0);
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
                   <h3 style={{ margin: "0 0 4px", color: "#0a2540" }}>🔒 Cautions des locataires</h3>
-                  <p style={{ color: "#888", fontSize: 13, marginBottom: 20 }}>
+                  <p style={{ color: "#888", fontSize: 13, marginBottom: 16 }}>
                     La caution est égale à un mois de loyer. Elle est automatiquement ajoutée à l'arrivée d'un locataire et supprimée à la clôture du contrat.
                   </p>
 
-                  {locataireAvecLogement.length === 0 ? (
+                  {clients.length > 0 && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+                      {cautionClients.map((tab) => (
+                        <button key={tab.id}
+                          onClick={() => setFiltreCaution(tab.id)}
+                          style={{
+                            padding: "7px 16px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 13,
+                            fontWeight: filtreCaution === tab.id ? 700 : 400,
+                            background: filtreCaution === tab.id ? "#1a237e" : "#f0f2f8",
+                            color: filtreCaution === tab.id ? "#fff" : "#333",
+                          }}
+                        >{tab.label}</button>
+                      ))}
+                    </div>
+                  )}
+
+                  {locatairesFiltres.length === 0 ? (
                     <p style={{ color: "#999" }}>Aucun locataire actif.</p>
                   ) : (
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -2555,7 +2587,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                         </tr>
                       </thead>
                       <tbody>
-                        {locataireAvecLogement.map((l, i) => {
+                        {locatairesFiltres.map((l, i) => {
                           const logement = mesAnnonces.find((a) => String(a._id) === String(l.logementId?._id));
                           const client = logement?.clientId;
                           const proprietaireNom = client
@@ -2576,7 +2608,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                     </table>
                   )}
 
-                  {locataireAvecLogement.length > 0 && (
+                  {locatairesFiltres.length > 0 && (
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
                       <div style={{ background: "#1a237e", color: "#fff", borderRadius: 8, padding: "12px 24px", fontSize: 15, fontWeight: 700 }}>
                         Total cautions : {Number(total).toLocaleString("fr-FR")} FCFA
@@ -3062,38 +3094,65 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
           })()}
 
           {/* --- Modal revenus mensuels --- */}
-          {moisSelectionne && (
-            <div className="modal-backdrop" style={{ zIndex: 2000 }} onClick={() => setMoisSelectionne(null)}>
-              <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <h3 style={{ margin: 0, color: "#0a2540" }}>Encaissements — {moisSelectionne}</h3>
-                  <button onClick={() => setMoisSelectionne(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#888" }}>×</button>
-                </div>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Logement</th>
-                      <th>Locataire</th>
-                      <th>Montant</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logementsDuMois(mois.indexOf(moisSelectionne)).length === 0 ? (
-                      <tr><td colSpan={3} style={{ color: "#aaa", textAlign: "center" }}>Aucun encaissement ce mois</td></tr>
-                    ) : (
-                      logementsDuMois(mois.indexOf(moisSelectionne)).map((p) => (
-                        <tr key={p._id}>
-                          <td>{p.logementTitre || "-"}</td>
-                          <td>{p.locataireNom || "-"}</td>
-                          <td style={{ fontWeight: 700, color: "#2e7d32" }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
+          {moisSelectionne && (() => {
+            const annee = new Date().getFullYear();
+            const moisIdx = mois.indexOf(moisSelectionne);
+            const encaissements = paiementsAffiches.filter(
+              (p) => p.statut === "payé" && p.datePaiement &&
+                new Date(p.datePaiement).getMonth() === moisIdx &&
+                new Date(p.datePaiement).getFullYear() === annee
+            );
+            const total = encaissements.reduce((s, p) => s + p.montant, 0);
+            return (
+              <div className="modal-backdrop" style={{ zIndex: 2000 }} onClick={() => setMoisSelectionne(null)}>
+                <div className="modal" style={{ maxWidth: 620, maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexShrink: 0 }}>
+                    <h3 style={{ margin: 0, color: "#0a2540" }}>Encaissements — {moisSelectionne}</h3>
+                    <button onClick={() => setMoisSelectionne(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#888" }}>×</button>
+                  </div>
+                  <div style={{ overflowY: "auto", flex: 1 }}>
+                    <table className="table" style={{ width: "100%" }}>
+                      <thead>
+                        <tr>
+                          <th>Logement</th>
+                          <th>Locataire</th>
+                          <th>Type</th>
+                          <th>Montant</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {encaissements.length === 0 ? (
+                          <tr><td colSpan={4} style={{ color: "#aaa", textAlign: "center" }}>Aucun encaissement ce mois</td></tr>
+                        ) : (
+                          encaissements.map((p) => {
+                            const isArriere = p.mois !== moisIdx + 1 || (p.annee && p.annee !== annee);
+                            return (
+                              <tr key={p._id}>
+                                <td>{p.logementTitre || "-"}</td>
+                                <td>{p.locataireNom || "-"}</td>
+                                <td>
+                                  {isArriere
+                                    ? <span style={{ background: "#FF9800", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>Arrière {mois[(p.mois || 1) - 1]}</span>
+                                    : <span style={{ background: "#4CAF50", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>Loyer du mois</span>
+                                  }
+                                </td>
+                                <td style={{ fontWeight: 700, color: "#2e7d32" }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  {encaissements.length > 0 && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingTop: 12, borderTop: "1px solid #f0f2f8", flexShrink: 0 }}>
+                      <strong style={{ color: "#1a237e" }}>Total : {Number(total).toLocaleString("fr-FR")} FCFA</strong>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* --- Tableau recouvrement mensuel --- */}
           <div style={{ background: "#fff", borderRadius: 8, padding: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)", marginTop: 28 }}>
