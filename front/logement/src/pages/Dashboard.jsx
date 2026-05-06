@@ -175,6 +175,7 @@ function Dashboard() {
 
   // --- Réglages : révision paiement ---
   const [revLocataireId, setRevLocataireId] = useState("");
+  const [revSearchLoc, setRevSearchLoc] = useState("");
 
   // --- États profil utilisateur ---
   const [profileName, setProfileName] = useState(user?.name || "");
@@ -330,6 +331,12 @@ function Dashboard() {
   const paiementsAffiches = filtreClient === "all"
     ? paiements
     : paiements.filter((p) => locatairesAffichemesIds.has(String(p.locataireId)));
+  const candidaturesAffichees = filtreClient === "all"
+    ? candidatures
+    : candidatures.filter((c) => annoncesAffichemesIds.has(String(c.logement?._id || c.logementId)));
+  const clientSelectionne = filtreClient !== "all" && filtreClient !== "mine"
+    ? clients.find((c) => String(c._id) === filtreClient) || null
+    : null;
 
   // --- Gestion des paiements pour graphique ---
   const getRevenuAnnuel = () => {
@@ -1564,17 +1571,20 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                   { label: "Logements total", value: annoncesAffichees.length, color: "#1a237e", icon: "🏢", page: "logements" },
                   { label: "Occupés", value: annoncesAffichees.filter((a) => a.etat === "indisponible").length, color: "#c62828", icon: "🔴", page: "logements" },
                   { label: "Disponibles", value: annoncesAffichees.filter((a) => a.etat === "disponible").length, color: "#2e7d32", icon: "🟢", page: "logements" },
-                  { label: "Locataires", value: locataires.length, color: "#6a1b9a", icon: "👥", page: "locataires" },
-                  { label: "Clients bailleurs", value: clients.length, color: "#e65100", icon: "🤝", page: "clients" },
-                  { label: "Candidatures", value: candidatures.length, color: "#00695c", icon: "📝", page: "reservations" },
-                ].map(({ label, value, color, icon, page }) => (
+                  { label: "Locataires", value: locatairesAffiches.length, color: "#6a1b9a", icon: "👥", page: "locataires" },
+                  filtreClient === "mine" ? null :
+                    clientSelectionne
+                      ? { label: "Client sélectionné", value: `${clientSelectionne.nom}${clientSelectionne.prenom ? " " + clientSelectionne.prenom : ""}`, color: "#e65100", icon: "🤝", page: "clients", small: true }
+                      : { label: "Clients bailleurs", value: clients.length, color: "#e65100", icon: "🤝", page: "clients" },
+                  { label: "Candidatures", value: candidaturesAffichees.length, color: "#00695c", icon: "📝", page: "reservations" },
+                ].filter(Boolean).map(({ label, value, color, icon, page, small }) => (
                   <div key={label} onClick={() => setActivePage(page)}
                     style={{ background: "#fff", borderRadius: 10, padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", textAlign: "center", borderTop: `4px solid ${color}`, cursor: "pointer", transition: "transform 0.15s" }}
                     onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
                     onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
                   >
                     <div style={{ fontSize: 26, marginBottom: 4 }}>{icon}</div>
-                    <div style={{ fontSize: 30, fontWeight: 800, color }}>{value}</div>
+                    <div style={{ fontSize: small ? 14 : 30, fontWeight: 800, color }}>{value}</div>
                     <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{label}</div>
                   </div>
                 ))}
@@ -1584,7 +1594,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
               {(() => {
                 const nowYear = new Date().getFullYear();
                 const nowMonth = getMoisActuel();
-                const revenuMois = paiements
+                const revenuMois = paiementsAffiches
                   .filter((p) =>
                     p.statut === "payé" && p.datePaiement &&
                     new Date(p.datePaiement).getMonth() + 1 === nowMonth &&
@@ -1614,20 +1624,20 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
               })()}
 
               {/* Alertes paiements */}
-              {paiements.filter((p) => p.statut === "en attente").length > 0 && (
+              {paiementsAffiches.filter((p) => p.statut === "en attente").length > 0 && (
                 <div onClick={() => setActivePage("locataires")} style={{ background: "#fff8e1", border: "1px solid #FF9800", borderRadius: 10, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", marginBottom: 16 }}>
                   <span style={{ fontSize: 26 }}>⚠️</span>
                   <div>
-                    <div style={{ fontWeight: 700, color: "#e65100" }}>{paiements.filter((p) => p.statut === "en attente").length} paiement(s) en attente</div>
+                    <div style={{ fontWeight: 700, color: "#e65100" }}>{paiementsAffiches.filter((p) => p.statut === "en attente").length} paiement(s) en attente</div>
                     <div style={{ fontSize: 13, color: "#888" }}>Cliquer pour gérer les locataires →</div>
                   </div>
                 </div>
               )}
-              {candidatures.length > 0 && (
+              {candidaturesAffichees.length > 0 && (
                 <div onClick={() => setActivePage("reservations")} style={{ background: "#e8f5e9", border: "1px solid #4CAF50", borderRadius: 10, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
                   <span style={{ fontSize: 26 }}>📝</span>
                   <div>
-                    <div style={{ fontWeight: 700, color: "#2e7d32" }}>{candidatures.length} candidature(s) à traiter</div>
+                    <div style={{ fontWeight: 700, color: "#2e7d32" }}>{candidaturesAffichees.length} candidature(s) à traiter</div>
                     <div style={{ fontSize: 13, color: "#888" }}>Cliquer pour voir les réservations →</div>
                   </div>
                 </div>
@@ -1878,7 +1888,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
         {/* --- Gérer mes candidatures --- */}
         <h2 style={{ marginTop: "0" }}>📝 Gérer mes candidatures</h2>
         <div style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 6px 18px rgba(0,0,0,0.06)", marginTop: 12 }}>
-          {candidatures.length === 0 ? (
+          {candidaturesAffichees.length === 0 ? (
             <p style={{ color: "#666" }}>Aucune candidature pour le moment.</p>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1893,7 +1903,7 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 </tr>
               </thead>
               <tbody>
-                {candidatures.map((c) => {
+                {candidaturesAffichees.map((c) => {
                   const uiStatus = mapStatusToUI(c.status || "nouvelle");
                   return (
                     <tr key={c._id} style={{ borderBottom: "1px solid #fafafa" }}>
@@ -2857,16 +2867,40 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 480 }}>
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Locataire</label>
-                    <select value={revLocataireId} onChange={(e) => setRevLocataireId(e.target.value)}
-                      style={{ width: "100%", marginTop: 4 }}>
-                      <option value="">-- Sélectionner un locataire --</option>
-                      {locataires.map((l) => (
-                        <option key={l._id} value={l._id}>
-                          {l.nom} {l.prenom} — {l.logementId?.titre || "logement inconnu"}
-                        </option>
-                      ))}
-                    </select>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.4px" }}>Rechercher un locataire</label>
+                    <input
+                      type="text"
+                      placeholder="Nom ou prénom..."
+                      value={revSearchLoc}
+                      onChange={(e) => { setRevSearchLoc(e.target.value); setRevLocataireId(""); }}
+                      style={{ width: "100%", marginTop: 4, padding: "9px 12px", border: "1px solid #ddd", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                    />
+                    {revSearchLoc && (() => {
+                      const q = revSearchLoc.toLowerCase();
+                      const resultats = locatairesAffiches.filter((l) =>
+                        `${l.nom} ${l.prenom}`.toLowerCase().includes(q) ||
+                        (l.telephone || "").includes(q)
+                      );
+                      return resultats.length === 0 ? (
+                        <p style={{ color: "#aaa", fontSize: 13, marginTop: 6 }}>Aucun locataire trouvé.</p>
+                      ) : (
+                        <div style={{ border: "1px solid #e0e0e0", borderRadius: 6, marginTop: 4, maxHeight: 200, overflowY: "auto", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+                          {resultats.map((l) => (
+                            <div key={l._id}
+                              onClick={() => { setRevLocataireId(l._id); setRevSearchLoc(`${l.nom} ${l.prenom}`); }}
+                              style={{
+                                padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #f0f2f8",
+                                background: revLocataireId === l._id ? "#e8eaf6" : "#fff",
+                                fontWeight: revLocataireId === l._id ? 700 : 400,
+                              }}
+                            >
+                              <span style={{ fontWeight: 600 }}>{l.nom} {l.prenom}</span>
+                              <span style={{ color: "#888", fontSize: 12, marginLeft: 8 }}>— {l.logementId?.titre || "logement inconnu"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {revLocataireId && (() => {
                     const loc = locataires.find((l) => l._id === revLocataireId);
