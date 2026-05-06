@@ -363,8 +363,6 @@ function Dashboard() {
   const totalPaiementsMois = dataPaiements.reduce((sum, d) => sum + d.value, 0);
 
   const dataGraph = getRevenuAnnuel();
-  const logementsDuMois = (moisIndex) =>
-    paiementsAffiches.filter((p) => p.mois === moisIndex + 1 && p.statut === "payé");
 
   // --- Ajouter logement ---
   const handleAdd = async (e) => {
