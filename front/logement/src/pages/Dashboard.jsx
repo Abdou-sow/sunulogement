@@ -3033,58 +3033,57 @@ Quittance valant preuve de paiement du loyer pour ${moisNom} ${annee}.
             const couleurTitre = pieModalFiltre === "payé" ? "#2e7d32" : "#e65100";
             return (
               <div className="modal-backdrop" style={{ zIndex: 2000 }} onClick={() => setPieModalFiltre(null)}>
-                <div className="modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div className="modal" style={{ maxWidth: 620, maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexShrink: 0 }}>
                     <h3 style={{ margin: 0, color: couleurTitre }}>{titre} — {mois[moisActuel - 1]} {annee}</h3>
                     <button onClick={() => setPieModalFiltre(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#888" }}>×</button>
                   </div>
                   {paiementsFiltres.length === 0 ? (
                     <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0" }}>Aucun paiement dans cette catégorie.</p>
                   ) : (
-                    <table className="table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: "#f0f2f8" }}>
-                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Locataire</th>
-                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Logement</th>
-                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Montant</th>
-                          <th style={{ padding: "10px 12px", textAlign: "left" }}>Statut</th>
-                          {pieModalFiltre === "payé" && <th style={{ padding: "10px 12px", textAlign: "left" }}>Date</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paiementsFiltres.map((p) => {
-                          const loc = locataires.find((l) => String(l._id) === String(p.locataireId));
-                          const nomLoc = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
-                          const statutCouleur = p.statut === "payé" ? { bg: "#e8f5e9", text: "#2e7d32" } : p.statut === "impayé" ? { bg: "#fdecea", text: "#c62828" } : { bg: "#fff8e1", text: "#e65100" };
-                          return (
-                            <tr key={p._id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                              <td style={{ padding: "10px 12px", fontWeight: 600 }}>{nomLoc}</td>
-                              <td style={{ padding: "10px 12px", color: "#555" }}>{p.logementTitre || "-"}</td>
-                              <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1a237e" }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
-                              <td style={{ padding: "10px 12px" }}>
-                                <span style={{ background: statutCouleur.bg, color: statutCouleur.text, borderRadius: 10, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>
-                                  {p.statut}
-                                </span>
-                              </td>
-                              {pieModalFiltre === "payé" && (
-                                <td style={{ padding: "10px 12px", color: "#888", fontSize: 12 }}>
-                                  {p.datePaiement ? new Date(p.datePaiement).toLocaleDateString("fr-FR") : "-"}
-                                </td>
-                              )}
+                    <>
+                      <div style={{ overflowY: "auto", flex: 1 }}>
+                        <table className="table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ background: "#f0f2f8", position: "sticky", top: 0 }}>
+                              <th style={{ padding: "10px 12px", textAlign: "left" }}>Locataire</th>
+                              <th style={{ padding: "10px 12px", textAlign: "left" }}>Logement</th>
+                              <th style={{ padding: "10px 12px", textAlign: "left" }}>Montant</th>
+                              <th style={{ padding: "10px 12px", textAlign: "left" }}>Statut</th>
+                              {pieModalFiltre === "payé" && <th style={{ padding: "10px 12px", textAlign: "left" }}>Date</th>}
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr style={{ background: "#f9fbe7", fontWeight: 700 }}>
-                          <td colSpan={pieModalFiltre === "payé" ? 2 : 2} style={{ padding: "10px 12px" }}>Total ({paiementsFiltres.length} paiement{paiementsFiltres.length > 1 ? "s" : ""})</td>
-                          <td style={{ padding: "10px 12px", color: "#1a237e" }}>
-                            {paiementsFiltres.reduce((s, p) => s + p.montant, 0).toLocaleString("fr-FR")} FCFA
-                          </td>
-                          <td colSpan={pieModalFiltre === "payé" ? 2 : 1}></td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                          </thead>
+                          <tbody>
+                            {paiementsFiltres.map((p) => {
+                              const loc = locataires.find((l) => String(l._id) === String(p.locataireId));
+                              const nomLoc = loc ? `${loc.nom || ""} ${loc.prenom || ""}`.trim() : (p.locataireNom || "-");
+                              const statutCouleur = p.statut === "payé" ? { bg: "#e8f5e9", text: "#2e7d32" } : p.statut === "impayé" ? { bg: "#fdecea", text: "#c62828" } : { bg: "#fff8e1", text: "#e65100" };
+                              return (
+                                <tr key={p._id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>{nomLoc}</td>
+                                  <td style={{ padding: "10px 12px", color: "#555" }}>{p.logementTitre || "-"}</td>
+                                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1a237e" }}>{Number(p.montant).toLocaleString("fr-FR")} FCFA</td>
+                                  <td style={{ padding: "10px 12px" }}>
+                                    <span style={{ background: statutCouleur.bg, color: statutCouleur.text, borderRadius: 10, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>
+                                      {p.statut}
+                                    </span>
+                                  </td>
+                                  {pieModalFiltre === "payé" && (
+                                    <td style={{ padding: "10px 12px", color: "#888", fontSize: 12 }}>
+                                      {p.datePaiement ? new Date(p.datePaiement).toLocaleDateString("fr-FR") : "-"}
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 12, borderTop: "1px solid #f0f2f8", flexShrink: 0 }}>
+                        <span style={{ color: "#888", fontSize: 13 }}>{paiementsFiltres.length} paiement{paiementsFiltres.length > 1 ? "s" : ""}</span>
+                        <strong style={{ color: "#1a237e" }}>Total : {paiementsFiltres.reduce((s, p) => s + p.montant, 0).toLocaleString("fr-FR")} FCFA</strong>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
